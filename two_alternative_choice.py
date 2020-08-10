@@ -94,6 +94,7 @@ class Box(object):
         start_f = 0
         high_f = np.zeros(self.window_size)
         low_f = np.zeros(self.window_size)
+
         if state == 'Start':
             start_f = 1
         elif state == 'High':
@@ -101,7 +102,7 @@ class Box(object):
             high_f = np.eye(self.window_size)[int(time_spent_in_state)]
         elif state == 'Low':
             time_spent_in_state = self.time_in_state[self.state_idx[state]]
-            low_f = np.eye(self.window_size)[int(time_spent_in_state)]
+            low_f= np.eye(self.window_size)[int(time_spent_in_state)]
         else:
             return np.zeros(self.n_features)
         return np.concatenate([[start_f], high_f, low_f])
@@ -175,6 +176,7 @@ class Mouse(object):
             self.habit_weights += self.habitisation_rate * np.outer(delta_action, features)
 
             left_habit_errors.append(delta_action[0])
+
             prediction_errors.append(delta)
 
             state = next_state
@@ -182,14 +184,17 @@ class Mouse(object):
             t += 1
         return prediction_errors, tone, reward, left_habit_errors, a
 
-    def choose_action(self, time, policy):
+    def choose_action(self, time, policy, random_policy=False):
         # a = np.random.choice(self.env.actions)
         if time == 0:
-            a = 'Centre'
+            a = 'Centre'  # force it to hear the cue on first time step
         elif 0 < time < 10:
             a = 'Idle'
         else:
-            a = np.random.choice(self.env.actions, p=policy)
+            if random_policy:
+                a = np.random.choice(['Left', 'Right'])
+            else:
+                a = np.random.choice(self.env.actions, p=policy)
         return a
 
     def softmax(self, features):
@@ -217,8 +222,7 @@ def align_PEs(PEs, trial_types, choices):
     return cue_aligned_df, reward_aligned_df
 
 
-def plot_early_and_late_PE(PEs_df, ax, title, num_trials=10):
-    trial_type_PEs = PEs_df
+def plot_early_and_late_PE(trial_type_PEs, ax, title, num_trials=10):
     first_n_trials = trial_type_PEs.iloc[0:num_trials].T
     mean_first_n = np.mean(first_n_trials, axis=1)
     last_n_trials = trial_type_PEs.iloc[-num_trials:].T
@@ -278,8 +282,7 @@ if __name__ == '__main__':
     n_trials = 300
 
     e = Box()
-    e.get_features('High')
-    a = Mouse(env=e, critic_learning_rate=0.05, actor_learning_rate=0.05, gamma=0.99)
+    a = Mouse(env=e, critic_learning_rate=0.05, actor_learning_rate=0.05, gamma=0.9)
 
     all_PEs = []
     all_APEs = []
@@ -299,6 +302,7 @@ if __name__ == '__main__':
     cue_aligned_RPEs, reward_aligned_RPEs = align_PEs(all_PEs, all_trial_types, all_actions)
     cue_aligned_APEs, reward_aligned_APEs = align_PEs(all_APEs, all_trial_types, all_actions)
 
-    plot_summary(cue_aligned_RPEs, reward_aligned_RPEs, cue_aligned_APEs, reward_aligned_APEs, choice='Right', tone='Low')
+    plot_summary(cue_aligned_RPEs, reward_aligned_RPEs, cue_aligned_APEs, reward_aligned_APEs, choice='Left', tone='High')
+
     plt.show()
 
