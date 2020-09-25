@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import matplotlib.cm as cm
+import matplotlib
 
 class Box(object):
     def __init__(self):
@@ -124,8 +125,16 @@ class Mouse(object):
 
     def compute_habit_prediction_error(self, action, state_num):
         action_idx = self.env.action_idx[action]
-        action_vector = np.eye(self.env.n_actions)[action_idx]
-        delta_a = action_vector - self.habit_strength[:, state_num]
+        if action == 'Idle':
+            delta_a = np.zeros([self.env.n_actions])  # means action 'Idle' does not cause APEs
+        elif action == 'Centre':
+            delta_a = np.zeros([self.env.n_actions])
+        else:
+            action_vector = np.eye(self.env.n_actions)[action_idx]
+            delta_a = action_vector - self.habit_strength[:, state_num]
+        if np.any(delta_a < 0):
+
+            delta_a[np.where(delta_a < 0)] = 0
         return delta_a
 
     def compute_average_reward_per_timestep(self):
@@ -152,11 +161,10 @@ class Mouse(object):
             next_state, reward = self.env.act(a)
             next_state_num = self.env.state_idx[next_state]
 
-            if t > 0:
+            if len(self.dwell_time_history) > 1:
                 rho_k = self.compute_average_reward_per_timestep()
             else:
                 rho_k = 0
-
             delta_k = reward - rho_k * dwell_time + self.critic_value[next_state_num] - self.critic_value[
                 current_state_num]  # NOT SURE IF THIS SHOULD BE A DOT PRODUCT
             delta_action = self.compute_habit_prediction_error(a, current_state_num)
@@ -199,7 +207,7 @@ class Mouse(object):
                     a = 'Centre'
             else:
                 a = np.random.choice(self.env.actions, p=policy)
-                print(a)
+                # print(a)
         return a
 
     def softmax(self, state_action_values):
@@ -227,30 +235,57 @@ def align_PEs(PEs, trial_types, choices):
     return cue_aligned_df, reward_aligned_df
 
 def plot_heat_maps_over_trials(PEs, time_stamps,ax, title, window=10, delta_range=[-1, 1]):
-    window = 10
     aligned_PEs = np.zeros([len(time_stamps), window])
     for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
         aligned_PEs[trial_num] = PEs[time_stamp - int(window / 2): time_stamp + int(window / 2)]
-    im = ax.imshow(aligned_PEs, extent=[-5, 5, trial_num, 0], aspect='auto',vmin=delta_range[0], vmax=delta_range[1])
+    im = ax.imshow(aligned_PEs, extent=[-(window/2), (window/2), trial_num, 0], aspect='auto',vmin=delta_range[0], vmax=delta_range[1])
     ax.set_xlabel('Time steps')
     ax.set_ylabel('Trial number')
+    ax.set_title(title)
+    return
+
+
+def plot_early_and_late(PEs, time_stamps,ax, title, window=10, chunk_prop=.33):
+    colours = cm.viridis(np.linspace(0, 0.8, 3))
+    aligned_PEs = np.zeros([len(time_stamps), window])
+    for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
+        aligned_PEs[trial_num] = PEs[time_stamp - int(window / 2): time_stamp + int(window / 2)]
+    early_aligned_PEs = aligned_PEs[:int(aligned_PEs.shape[0] * chunk_prop)].mean(axis=0)
+    mid_aligned_PEs = aligned_PEs[int(aligned_PEs.shape[0] * chunk_prop):-int(aligned_PEs.shape[0] * chunk_prop)].mean(axis=0)
+    late_aligned_PEs = aligned_PEs[-int(aligned_PEs.shape[0] * chunk_prop):].mean(axis=0)
+    timesteps = np.arange(-(window/2), (window/2))
+    ax.plot(timesteps, early_aligned_PEs, color=colours[0], label= 'early')
+    ax.plot(timesteps, mid_aligned_PEs, color=colours[1], label= 'mid')
+    ax.plot(timesteps, late_aligned_PEs, color=colours[2], label= 'late')
+    ax.set_xlabel('Time steps')
+    ax.set_ylabel('Response')
+    ax.set_title(title)
+    return
+
+def plot_change_over_time(PEs, time_stamps,ax, title):
+    PEs_peak = np.zeros([len(time_stamps)-3])
+    for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
+        PEs_peak[trial_num] = PEs[time_stamp]
+    ax.plot(PEs_peak, color='#3F888F')
+    ax.set_xlabel('Trial')
+    ax.set_ylabel('Response size')
     ax.set_title(title)
     return
 
 if __name__ == '__main__':
     import pandas as pd
 
-    n_trials = 200
+    n_trials = 800
 
     e = Box()
-    a = Mouse(env=e, critic_learning_rate=0.05, actor_learning_rate=0.05)
+    a = Mouse(env=e, critic_learning_rate=0.0025, actor_learning_rate=0.0025, habitisation_rate=0.01)
 
     all_PEs = []
     all_APEs = []
     all_trial_types = []
     all_actions = []
     all_states = []
-    all_state_changes = pd.DataFrame(columns=['state name', 'time stamp'])
+    all_state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'action taken'])
     for i in range(n_trials):
         PEs, trial_type,action, states, state_changes, apes = a.one_trial()
         e.reset()
@@ -268,20 +303,72 @@ low_tone_times = all_state_changes['time stamp'][all_state_changes[all_state_cha
 high_tone_times = all_state_changes['time stamp'][all_state_changes[all_state_changes['state name']=='High'].index.values].values
 left_choices = all_state_changes['time stamp'][all_state_changes[all_state_changes['action taken']=='Left'].index.values].values
 right_choices = all_state_changes['time stamp'][all_state_changes[all_state_changes['action taken']=='Right'].index.values].values
+
+font = {'size'   : 12}
+matplotlib.rc('font', **font)
 fig, axs = plt.subplots(nrows=1, ncols=3)
 min_PE = min(np.concatenate(all_PEs).ravel())
 max_PE = max(np.concatenate(all_PEs).ravel())
-reward_plot = plot_heat_maps_over_trials(continuous_time_PEs, rewarded_trials, axs[0], 'reward', window=10, delta_range=[min_PE, max_PE])
-low_plot = plot_heat_maps_over_trials(continuous_time_PEs, low_tone_times, axs[1], 'low cues', window=10, delta_range=[min_PE, max_PE])
-high_plot = plot_heat_maps_over_trials(continuous_time_PEs, high_tone_times, axs[2], 'high cues', window=10, delta_range=[min_PE, max_PE])
+reward_plot = plot_heat_maps_over_trials(continuous_time_PEs, rewarded_trials, axs[0], 'reward', window=6, delta_range=[min_PE, max_PE])
+low_plot = plot_heat_maps_over_trials(continuous_time_PEs, low_tone_times, axs[1], 'low cues', window=6, delta_range=[min_PE, max_PE])
+high_plot = plot_heat_maps_over_trials(continuous_time_PEs, high_tone_times, axs[2], 'high cues', window=6, delta_range=[min_PE, max_PE])
 plt.tight_layout()
 
-fig1, axs1 = plt.subplots(nrows=1, ncols=2)
+fig1, axs1 = plt.subplots(nrows=1, ncols=3)
+min_PE = min(np.concatenate(all_PEs).ravel())
+max_PE = max(np.concatenate(all_PEs).ravel())
+reward_plot = plot_early_and_late(continuous_time_PEs, rewarded_trials, axs1[0], 'reward', window=6)
+low_plot = plot_early_and_late(continuous_time_PEs, low_tone_times, axs1[1], 'low cues', window=6)
+high_plot = plot_early_and_late(continuous_time_PEs, high_tone_times, axs1[2], 'high cues', window=6)
+axs1[2].legend(bbox_to_anchor=(1., .8, .15, .2), loc='upper left')
+plt.tight_layout()
+
+
+
+for ax in axs1:
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+fig2, axs2 = plt.subplots(nrows=1, ncols=2)
 min_APE = min(np.concatenate(all_APEs).ravel())
 max_APE = max(np.concatenate(all_APEs).ravel())
-left_plot = plot_heat_maps_over_trials(continuous_time_APEs, left_choices, axs1[0], 'left', window=10, delta_range=[min_APE, max_APE])
-low_plot = plot_heat_maps_over_trials(continuous_time_APEs, right_choices, axs1[1], 'right', window=10, delta_range=[min_APE, max_APE])
+left_plot = plot_heat_maps_over_trials(continuous_time_APEs, left_choices, axs2[0], 'contra', window=6, delta_range=[min_APE, max_APE])
+low_plot = plot_heat_maps_over_trials(continuous_time_APEs, right_choices, axs2[1], 'ipsi', window=6, delta_range=[min_APE, max_APE])
 
 plt.tight_layout()
 
+
+fig3, axs3 = plt.subplots(nrows=1, ncols=2, sharey=True)
+min_APE = min(np.concatenate(all_APEs).ravel())
+max_APE = max(np.concatenate(all_APEs).ravel())
+left_plot = plot_early_and_late(continuous_time_APEs, left_choices, axs3[0], 'contra', window=6)
+low_plot = plot_early_and_late(continuous_time_APEs, right_choices, axs3[1], 'ipsi', window=6)
+axs3[1].legend(bbox_to_anchor=(1., .8, .15, .2), loc='upper left')
+
+for ax in axs3:
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+fig4, axs4 = plt.subplots(nrows=1, ncols=3)
+reward_plot = plot_change_over_time(continuous_time_PEs, rewarded_trials, axs4[0], 'reward')
+low_plot = plot_change_over_time(continuous_time_PEs, low_tone_times, axs4[1], 'low cues')
+high_plot = plot_change_over_time(continuous_time_PEs, high_tone_times, axs4[2], 'high cues')
+plt.tight_layout()
+
+for ax in axs4:
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+fig5, axs5 = plt.subplots(nrows=1, ncols=2, sharey=True)
+left_plot = plot_change_over_time(continuous_time_APEs, left_choices, axs5[0], 'contra')
+low_plot = plot_change_over_time(continuous_time_APEs, right_choices, axs5[1], 'ipsi')
+
+for ax in axs5:
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+
+
+plt.tight_layout()
 plt.show()
+
