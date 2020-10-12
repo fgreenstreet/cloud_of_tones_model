@@ -111,7 +111,7 @@ class Box(object):
 
 
 class Mouse(object):
-    def __init__(self, dwell_times, env=Box(), critic_learning_rate=.1, actor_learning_rate=.1, habitisation_rate =.1, inv_temp=5.):
+    def __init__(self, dwell_times, env=Box(), critic_learning_rate=.1, actor_learning_rate=.1, habitisation_rate =.1, inv_temp=5., psi=0.1):
         self.env = env
         self.inv_temp = inv_temp  # inverse temperature param for softmax decision func
         self.critic_lr = critic_learning_rate
@@ -127,6 +127,7 @@ class Mouse(object):
         self.r_k = []
         self.k = 0
         self.dwell_timer = dwell_times[self.k] #np.random.geometric(0.35)*3
+        self.psi = psi
 
     def compute_value(self, features):
         return np.dot(self.critic_weights, features)
@@ -148,11 +149,11 @@ class Mouse(object):
             delta_a[np.where(delta_a < 0)] = 0
         return delta_a
 
-    def compute_average_reward_per_timestep(self):
+    def compute_average_reward_per_timestep(self, n=500):
         if self.k == 0:
             rho_k = 0
         else:
-            rho_k = sum(self.r_k)/ sum(self.dwell_time_history)
+            rho_k = sum(self.r_k[-n:])/ sum(self.dwell_time_history[-n:])
         return rho_k
 
     def compute_average_reward_per_timestep_fast(self):
@@ -168,6 +169,7 @@ class Mouse(object):
         a = None
         actions = []
         states = []
+        rectified_prediction_errors = []
         state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'action taken'])
         while not self.env.in_terminal_state() and t < 1000:
             current_state_num = self.env.state_idx[self.env.current_state]
@@ -178,28 +180,26 @@ class Mouse(object):
             next_state, reward = self.env.act(a)
             next_state_num = self.env.state_idx[next_state]
 
-            if len(self.dwell_time_history) > 1:
-                self.rho = self.compute_average_reward_per_timestep_fast()
-                #rho2 = self.compute_average_reward_per_timestep()
-                #if self.rho != rho2:
-                #    print('help')
-            else:  # avoid divide by zero for first ever time step.
-                rho2 = 0
-            delta_k = reward - self.rho * dwell_time/max(self.dwell_times) + self.critic_value[next_state_num] - self.critic_value[
-                current_state_num]  # NOT SURE IF THIS SHOULD BE A DOT PRODUCT
+            rho2 = 0
+            delta_k = 0
+            rectified_delta_k = 0
             delta_action = self.compute_habit_prediction_error(a, current_state_num)
 
             if current_state != next_state:  # only updates value at state transitions
+                self.r_k.append(reward)
+                rho2 = self.compute_average_reward_per_timestep()
+                delta_k = reward - rho2 * dwell_time + self.critic_value[next_state_num] - self.critic_value[current_state_num]
+                rectified_delta_k = rectify(delta_k + self.psi)
                 self.k += 1
-                self.dwell_timer = self.dwell_times[self.k] #np.random.geometric(0.35)*3
+                self.dwell_timer = self.dwell_times[self.k]
                 self.critic_value[current_state_num] += self.critic_lr * delta_k
                 self.actor_value[self.env.action_idx[a], current_state_num] += self.actor_lr * delta_k
                 self.habit_strength[:, current_state_num] += self.habitisation_rate * delta_action
                 k += 1  # transition index increases
-                new_state_changes = pd.DataFrame([[next_state, self.env.timer, a]], columns=['state name', 'time stamp', 'action taken'])
+                new_state_changes = pd.DataFrame([[next_state, self.env.timer, dwell_time, a]], columns=['state name', 'time stamp', 'dwell time', 'action taken'])
                 state_changes = state_changes.append(new_state_changes)
                 self.dwell_time_history.append(dwell_time)
-                self.r_k.append(reward)
+
 
 
             if next_state == 'High':
@@ -207,14 +207,14 @@ class Mouse(object):
             elif next_state == 'Low':
                 tone = 'Low'
             prediction_errors.append(delta_k)
+            rectified_prediction_errors.append(rectified_delta_k)
             apes.append(delta_action[0])
             actions.append(a)
             states.append(self.env.current_state)
             self.reward_history.append(reward)
-            #self.dwell_time_history.append(dwell_time)
             t += 1
             self.env.timer += 1
-        return prediction_errors, tone, actions, states, state_changes, apes
+        return prediction_errors,rectified_prediction_errors, tone, actions, states, state_changes, apes
 
     def choose_action(self, policy, dwell_time, random_policy=False, optimal_policy=False):
         if dwell_time < self.dwell_timer:
@@ -286,32 +286,46 @@ def plot_early_and_late(PEs, time_stamps,ax, title, window=10, chunk_prop=.33):
     ax.set_title(title)
     return
 
+
 def plot_change_over_time(PEs, time_stamps,ax, title):
     PEs_peak = np.zeros([len(time_stamps)-3])
     for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
         PEs_peak[trial_num] = PEs[time_stamp]
-    ax.plot(PEs_peak, color='#3F888F')
+    rolling_av_peaks = moving_average(PEs_peak, n=50)
+    ax.plot(rolling_av_peaks, color='#3F888F')
     ax.set_xlabel('Trial')
     ax.set_ylabel('Response size')
     ax.set_title(title)
     return
 
+
+def rectify(num_to_rectify):
+    if num_to_rectify < 0:
+        return 0
+    else:
+        return num_to_rectify
+
+def moving_average(a, n=3):
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
 if __name__ == '__main__':
 
-    n_trials = 800
+    n_trials = 2000
     x = np.linspace(0,50, n_trials  * 10)
-    dwell_times = (np.exp(-x)*5 + np.random.rand(x.shape[0])) + 5
+    dwell_times = np.random.geometric(0.01, x.shape[0]) * 3#(np.exp(-x)*3+ np.random.rand(x.shape[0])) + 5
     e = Box(punish=True)
-    a = Mouse(dwell_times, env=e, critic_learning_rate=0.0025, actor_learning_rate=0.0025, habitisation_rate=0.01)
+    a = Mouse(dwell_times, env=e, critic_learning_rate=0.0025, actor_learning_rate=0.0025, habitisation_rate=0.01, psi=0.1)
 
     all_PEs = []
     all_APEs = []
     all_trial_types = []
     all_actions = []
     all_states = []
-    all_state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'action taken'])
+    all_state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'dwell time', 'action taken'])
     for i in tqdm(range(n_trials)):
-        PEs, trial_type, action, states, state_changes, apes = a.one_trial()
+        _, PEs, trial_type, action, states, state_changes, apes = a.one_trial()
         e.reset()
         all_states.append(states)
         all_PEs.append(PEs)
@@ -323,6 +337,9 @@ if __name__ == '__main__':
     continuous_time_PEs = np.concatenate(all_PEs).ravel()
     continuous_time_APEs = np.concatenate(all_APEs).ravel()
     rewarded_trials = np.where(np.asarray(a.reward_history) == 1)[0]
+
+    low_states = all_state_changes[all_state_changes['state name'] == 'Low']
+    #short_low_states = low_states.loc[low_states['dwell time'] > np.mean(dwell_times)]
     low_tone_times = all_state_changes['time stamp'][all_state_changes[all_state_changes['state name']=='Low'].index.values].values
     high_tone_times = all_state_changes['time stamp'][all_state_changes[all_state_changes['state name']=='High'].index.values].values
     left_choices = all_state_changes['time stamp'][all_state_changes[all_state_changes['action taken']=='Left'].index.values].values
