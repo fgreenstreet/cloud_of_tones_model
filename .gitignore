@@ -1,3 +1,5 @@
 **/venv
 *.npy
 *.prof
+__pycache__
+*.idea
