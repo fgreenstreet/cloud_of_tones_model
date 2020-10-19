@@ -129,6 +129,7 @@ class Mouse(object):
         self.dwell_timer = dwell_times[self.k] #np.random.geometric(0.35)*3
         self.psi = psi
 
+
     def compute_value(self, features):
         return np.dot(self.critic_weights, features)
 

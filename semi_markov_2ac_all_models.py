@@ -4,10 +4,12 @@ import matplotlib.cm as cm
 import matplotlib
 import pdb
 from tqdm import tqdm, trange
+
 np.random.seed(0)
 
+
 class Box(object):
-    def __init__(self):
+    def __init__(self, punish=False):
         self.high_to_left = True  # toggles whether High tone corresponds to correct action being left
         self.high_sound_prob = .5
 
@@ -21,6 +23,8 @@ class Box(object):
         self.current_state = self.states[0]
         self.time_in_state = np.zeros(self.n_states, dtype=int)
         self.timer = 0
+        self.punish = punish
+
 
     def act(self, action):
         # maybe make animals not able to act every time step
@@ -80,7 +84,10 @@ class Box(object):
             if action == 'Idle':
                 next_state = state
             elif action == 'Centre':
-                next_state = state
+                if self.punish:
+                    next_state = 'Outcome'
+                else:
+                    next_state = state
             else:
                 next_state = 'Outcome'
         elif state == 'Outcome':
@@ -107,7 +114,7 @@ class Box(object):
 
 
 class Mouse(object):
-    def __init__(self, env=Box(), critic_learning_rate=.2, actor_learning_rate=.1, habitisation_rate =.1, inv_temp=5.):
+    def __init__(self, dwell_times, env=Box(), critic_learning_rate=.2, actor_learning_rate=.1, habitisation_rate=.1, inv_temp=5., psi=0.1):
         self.env = env
         self.inv_temp = inv_temp  # inverse temperature param for softmax decision func
         self.critic_lr = critic_learning_rate
@@ -118,27 +125,32 @@ class Mouse(object):
         self.habitisation_rate = habitisation_rate
         self.reward_history = []
         self.dwell_time_history = []
-        self.dwell_timer = np.random.geometric(0.35)*3
+        self.k = 0
+        self.dwell_timer = dwell_times[self.k]
         self.t_per_state = np.zeros(self.env.n_states)
+        self.instances_in_state = np.zeros(self.env.n_states)
         self.saliences = np.zeros(self.env.n_states)
+        self.dwell_times = dwell_times
+        self.rho = 0
+        self.r_k = []
+        self.psi = psi
 
     def compute_value(self, features):
         return np.dot(self.critic_weights, features)
 
     def compute_action_value(self, features, action_idx):
-        return np.dot(features, self.actor_weights[action_idx]) # is this right? 
+        return np.dot(features, self.actor_weights[action_idx])  # is this right?
 
     def compute_habit_prediction_error(self, action, state_num):
         action_idx = self.env.action_idx[action]
         if action == 'Idle':
             delta_a = np.zeros([self.env.n_actions])  # means action 'Idle' does not cause APEs
         elif action == 'Centre':
-            delta_a = np.zeros([self.env.n_actions]) # if it moves to the center it doesn't generate an APE?
+            delta_a = np.zeros([self.env.n_actions])
         else:
             action_vector = np.eye(self.env.n_actions)[action_idx]
             delta_a = action_vector - self.habit_strength[:, state_num]
         if np.any(delta_a < 0):
-
             delta_a[np.where(delta_a < 0)] = 0
         return delta_a
 
@@ -146,38 +158,42 @@ class Mouse(object):
         """fire in response to movement"""
         action_idx = self.env.action_idx[action]
         if action == 'Idle':
-            signal = np.zeros([self.env.n_actions]) # no movement
+            signal = np.zeros([self.env.n_actions])  # no movement
         elif action == 'Centre':
-            signal = np.zeros([self.env.n_actions]) # no movement
+            signal = np.zeros([self.env.n_actions])  # no movement
         else:
             signal = np.eye(self.env.n_actions)[action_idx]
-        
+
         return signal
 
-    def compute_novelty(self, gamma=0.001): # .33 if reset every trial, 0.01 if maintain across
+    def compute_novelty(self, gamma=0.01):  # .33 if reset every trial, 0.01 if maintain across
         # just a decaying exponential of time spent in a state
-        return np.exp(-gamma * self.t_per_state)
+        return np.exp(-gamma * self.instances_in_state)
 
     def compute_salience(self, value, novelty, state_idx, beta=0.5):
         # TODO: novelty + rpe
-        #return beta * value + (1 - beta) * novelty 
+        # return beta * value + (1 - beta) * novelty
         return value[state_idx] / beta + novelty[state_idx]
 
-    def compute_average_reward_per_timestep(self):
-        rho_k = np.sum(np.asarray(self.reward_history))/ np.sum(np.asarray(self.dwell_time_history))
+    def compute_average_reward_per_timestep(self, n=500):
+        if self.k == 0:
+            rho_k = 0
+        else:
+            rho_k = sum(self.r_k[-n:]) / sum(self.dwell_time_history[-n:])
         return rho_k
 
     def one_trial(self):
         k = 0
         t = 0
-        prediction_errors, apes, actions, states, m_signals, novelties, salience_hist, values = [], [], [], [], [], [], [], []
-        #t_per_state = np.zeros(self.env.n_states) # TODO: reset every trial or nah
+        rectified_prediction_errors, prediction_errors, apes, actions, states, m_signals, novelties, salience_hist, values = [], [], [], [], [], [], [], [], []
         tone = None
         a = None
-        state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'action taken'])
+        state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'dwell time', 'action taken'])
         total_reward = 0.
+        self.instances_in_state[0] = 1
+        novelty = self.compute_novelty()
+        self.saliences[0] = self.compute_salience(self.critic_value, novelty, 0)
         while not self.env.in_terminal_state() and t < 1000:
-            # policy = [0.25, 0.25, 0.25, 0.25]
             current_state_num = self.env.state_idx[self.env.current_state]
             self.t_per_state[current_state_num] += 1
             current_state = self.env.current_state
@@ -186,45 +202,55 @@ class Mouse(object):
             a = self.choose_action(policy, dwell_time)
             next_state, reward = self.env.act(a)
             next_state_num = self.env.state_idx[next_state]
-
-            if len(self.dwell_time_history) > 1:
-                rho_k = self.compute_average_reward_per_timestep()
-            else:
-                rho_k = 0
-            delta_k = reward - rho_k * dwell_time + self.critic_value[next_state_num] - self.critic_value[
-                current_state_num]  # NOT SURE IF THIS SHOULD BE A DOT PRODUCT
+            rho2 = 0
+            delta_k = 0
+            rectified_delta_k = 0
             delta_action = self.compute_habit_prediction_error(a, current_state_num)
             ################################################################
             movement_signal = self.compute_movement_signal(a)
-            novelty = self.compute_novelty()
-            self.saliences[current_state_num] = self.compute_salience(self.critic_value, novelty, current_state_num)
-            ################################################################
+            novelty = np.zeros(self.env.n_states)
+            self.saliences = np.zeros(self.env.n_states)
 
+            ################################################################
             if current_state != next_state:  # only updates value at state transitions
-                self.dwell_timer = np.random.geometric(0.35)*3
+                novelty = self.compute_novelty()
+                self.saliences[next_state_num] = self.compute_salience(self.critic_value, novelty, next_state_num)
+                self.instances_in_state[next_state_num] += 1
+                self.r_k.append(reward)
+                rho2 = self.compute_average_reward_per_timestep()
+                delta_k = reward - rho2 * dwell_time + self.critic_value[next_state_num] - self.critic_value[current_state_num]
+                rectified_delta_k = rectify(delta_k + self.psi)
+                self.k += 1
+                self.dwell_timer = self.dwell_times[self.k]
                 self.critic_value[current_state_num] += self.critic_lr * delta_k
                 self.actor_value[self.env.action_idx[a], current_state_num] += self.actor_lr * delta_k
                 self.habit_strength[:, current_state_num] += self.habitisation_rate * delta_action
                 k += 1  # transition index increases
-                new_state_changes = pd.DataFrame([[next_state, self.env.timer, a]], columns=['state name', 'time stamp', 'action taken'])
+                new_state_changes = pd.DataFrame([[next_state, self.env.timer, dwell_time, a]], columns=['state name', 'time stamp', 'dwell time', 'action taken'])
                 state_changes = state_changes.append(new_state_changes)
+                self.dwell_time_history.append(dwell_time)
+
 
             if next_state == 'High':
                 tone = 'High'
             elif next_state == 'Low':
                 tone = 'Low'
             prediction_errors.append(delta_k)
+            rectified_prediction_errors.append(rectified_delta_k)
             apes.append(delta_action[0])
-            actions.append(a); values.append(self.critic_value.reshape(-1, 1));
-            m_signals.append(movement_signal.reshape(-1, 1)); novelties.append(novelty.reshape(-1, 1)); salience_hist.append(self.saliences.reshape(-1, 1))
+            actions.append(a)
+            values.append(self.critic_value.reshape(-1, 1))
+            m_signals.append(movement_signal.reshape(-1, 1))
+            novelties.append(novelty.reshape(-1, 1))
+            salience_hist.append(self.saliences.reshape(-1, 1))
             states.append(self.env.current_state)
             total_reward += reward
             self.reward_history.append(reward)
-            self.dwell_time_history.append(dwell_time)
             t += 1
             self.env.timer += 1
-        return prediction_errors, tone, actions, states, state_changes, apes,\
-            total_reward, np.hstack(m_signals), np.hstack(values), np.hstack(novelties), np.hstack(salience_hist) # novelties, saliences is 4 x trial_len
+        return prediction_errors, rectified_prediction_errors, tone, actions, states, state_changes, apes, \
+               total_reward, m_signals, values, novelties, salience_hist  # novelties, saliences is 4 x trial_len
+
 
     def choose_action(self, policy, dwell_time, random_policy=False, optimal_policy=False):
         if dwell_time < self.dwell_timer:
@@ -241,7 +267,6 @@ class Mouse(object):
                     a = 'Centre'
             else:
                 a = np.random.choice(self.env.actions, p=policy)
-                # print(a)
         return a
 
     def softmax(self, state_action_values):
@@ -268,63 +293,83 @@ def align_PEs(PEs, trial_types, choices):
     reward_aligned_df['Choice'] = choices
     return cue_aligned_df, reward_aligned_df
 
-def plot_heat_maps_over_trials(PEs, time_stamps,ax, title, window=10, delta_range=[-1, 1]):
+
+def plot_heat_maps_over_trials(PEs, time_stamps, ax, title, window=10, delta_range=[-1, 1]):
     aligned_PEs = np.zeros([len(time_stamps), window])
     for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
         aligned_PEs[trial_num] = PEs[time_stamp - int(window / 2): time_stamp + int(window / 2)]
-    im = ax.imshow(aligned_PEs, extent=[-(window/2), (window/2), trial_num, 0], aspect='auto',vmin=delta_range[0], vmax=delta_range[1])
+    im = ax.imshow(aligned_PEs, extent=[-(window / 2), (window / 2), trial_num, 0], aspect='auto', vmin=delta_range[0],
+                   vmax=delta_range[1])
     ax.set_xlabel('Time steps')
     ax.set_ylabel('Trial number')
     ax.set_title(title)
     return
 
 
-def plot_early_and_late(PEs, time_stamps,ax, title, window=10, chunk_prop=.33):
+def plot_early_and_late(PEs, time_stamps, ax, title, window=10, chunk_prop=.33):
     colours = cm.viridis(np.linspace(0, 0.8, 3))
     aligned_PEs = np.zeros([len(time_stamps), window])
     for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
         aligned_PEs[trial_num] = PEs[time_stamp - int(window / 2): time_stamp + int(window / 2)]
     early_aligned_PEs = aligned_PEs[:int(aligned_PEs.shape[0] * chunk_prop)].mean(axis=0)
-    mid_aligned_PEs = aligned_PEs[int(aligned_PEs.shape[0] * chunk_prop):-int(aligned_PEs.shape[0] * chunk_prop)].mean(axis=0)
+    mid_aligned_PEs = aligned_PEs[int(aligned_PEs.shape[0] * chunk_prop):-int(aligned_PEs.shape[0] * chunk_prop)].mean(
+        axis=0)
     late_aligned_PEs = aligned_PEs[-int(aligned_PEs.shape[0] * chunk_prop):].mean(axis=0)
-    timesteps = np.arange(-(window/2), (window/2))
-    ax.plot(timesteps, early_aligned_PEs, color=colours[0], label= 'early')
-    ax.plot(timesteps, mid_aligned_PEs, color=colours[1], label= 'mid')
-    ax.plot(timesteps, late_aligned_PEs, color=colours[2], label= 'late')
+    timesteps = np.arange(-(window / 2), (window / 2))
+    ax.plot(timesteps, early_aligned_PEs, color=colours[0], label='early')
+    ax.plot(timesteps, mid_aligned_PEs, color=colours[1], label='mid')
+    ax.plot(timesteps, late_aligned_PEs, color=colours[2], label='late')
     ax.set_xlabel('Time steps')
     ax.set_ylabel('Response')
-    ax.set_title(title)
+    plt.xticks(timesteps," ")
+    plt.yticks(timesteps, " ")
     return
 
-def plot_change_over_time(PEs, time_stamps,ax, title):
-    PEs_peak = np.zeros([len(time_stamps)-3])
-    for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
+
+def plot_change_over_time(PEs, stamps,ax):
+    PEs_peak = np.zeros([len(stamps)-3])
+    for trial_num, time_stamp in enumerate(stamps[1:-2]):
         PEs_peak[trial_num] = PEs[time_stamp]
-    ax.plot(PEs_peak, color='#3F888F')
-    ax.set_xlabel('Trial')
-    ax.set_ylabel('Response size')
-    ax.set_title(title)
+    rolling_av_peaks = moving_average(PEs_peak, n=50)
+    ax.plot(rolling_av_peaks, color='#3F888F')
+    plt.xticks(np.arange(rolling_av_peaks.shape[0]), " ")
+    plt.yticks(np.arange(np.round(max(rolling_av_peaks))), " ")
     return
+
+
+def rectify(num_to_rectify):
+    if num_to_rectify < 0:
+        return 0
+    else:
+        return num_to_rectify
+
+
+def moving_average(a, n=3):
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
 
 if __name__ == '__main__':
     import pandas as pd
 
-    n_trials = 800
-
-    e = Box()
-    a = Mouse(env=e, critic_learning_rate=0.007, actor_learning_rate=0.0025, habitisation_rate=0.01) #0.0025
+    n_trials = 2000
+    x = np.linspace(0,50, n_trials  * 10)
+    dwell_times = np.random.geometric(0.01, x.shape[0]) * 3#(np.exp(-x)*3+ np.random.rand(x.shape[0])) + 5
+    e = Box(punish=True)
+    a = Mouse(dwell_times, env=e, critic_learning_rate=0.0025, actor_learning_rate=0.0025, habitisation_rate=0.01, psi=0.1)  # 0.0025
 
     all_PEs = []
     all_APEs = []
     all_trial_types = []
     all_actions = []
     all_states = []
-    all_state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'action taken'])
+    all_state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'dwell time', 'action taken'])
     all_rewards, all_MSs, all_Ns, all_Ss, all_Vs = [], [], [], [], []
     with trange(n_trials) as t:
         for i in t:
-            PEs, trial_type, action, states, state_changes, apes, trial_r, m_signals, values, novelties, saliences = a.one_trial()
-            #pdb.set_trace()
+            _, PEs, trial_type, action, states, state_changes, apes, trial_r, m_signals, values, novelties, saliences = a.one_trial()
+            # pdb.set_trace()
             all_rewards.append(trial_r)
             mean_r = sum(all_rewards) / (i + 1.)
             t.set_description(f"avg. reward = {mean_r}")
@@ -344,137 +389,54 @@ if __name__ == '__main__':
 
 continuous_time_PEs = np.concatenate(all_PEs).ravel()
 continuous_time_APEs = np.concatenate(all_APEs).ravel()
-################################
-continuous_time_MSs = np.hstack(all_MSs)#np.concatenate(all_MSs).ravel()
-continuous_time_Ns = np.hstack(all_Ns)
-continuous_time_Ss = np.hstack(all_Ss)
-continuous_time_Vs = np.hstack(all_Vs)
-################################
+continuous_time_MSs = np.squeeze(np.concatenate(all_MSs))[:,0] # np.concatenate(all_MSs).ravel()
+continuous_time_Ns = np.squeeze(np.concatenate(all_Ns))
+continuous_time_Ss = np.squeeze(np.concatenate(all_Ss))
+continuous_time_Vs = np.squeeze(np.concatenate(all_Vs))
+
+
 rewarded_trials = np.where(np.asarray(a.reward_history) == 1)[0]
-low_tone_times = all_state_changes['time stamp'][all_state_changes[all_state_changes['state name']=='Low'].index.values].values
-high_tone_times = all_state_changes['time stamp'][all_state_changes[all_state_changes['state name']=='High'].index.values].values
-left_choices = all_state_changes['time stamp'][all_state_changes[all_state_changes['action taken']=='Left'].index.values].values
-right_choices = all_state_changes['time stamp'][all_state_changes[all_state_changes['action taken']=='Right'].index.values].values
+low_tone_times = all_state_changes['time stamp'][
+    all_state_changes[all_state_changes['state name'] == 'Low'].index.values].values
+high_tone_times = all_state_changes['time stamp'][
+    all_state_changes[all_state_changes['state name'] == 'High'].index.values].values
+left_choices = all_state_changes['time stamp'][
+    all_state_changes[all_state_changes['action taken'] == 'Left'].index.values].values
+right_choices = all_state_changes['time stamp'][
+    all_state_changes[all_state_changes['action taken'] == 'Right'].index.values].values
 
-font = {'size'   : 12}
-matplotlib.rc('font', **font)
-fig, axs = plt.subplots(nrows=1, ncols=3)
-min_PE = min(np.concatenate(all_PEs).ravel())
-max_PE = max(np.concatenate(all_PEs).ravel())
-reward_plot = plot_heat_maps_over_trials(continuous_time_PEs, rewarded_trials, axs[0], 'reward', window=6, delta_range=[min_PE, max_PE])
-low_plot = plot_heat_maps_over_trials(continuous_time_PEs, low_tone_times, axs[1], 'low cues', window=6, delta_range=[min_PE, max_PE])
-high_plot = plot_heat_maps_over_trials(continuous_time_PEs, high_tone_times, axs[2], 'high cues', window=6, delta_range=[min_PE, max_PE])
-plt.tight_layout()
-
-fig1, axs1 = plt.subplots(nrows=1, ncols=3)
-min_PE = min(np.concatenate(all_PEs).ravel())
-max_PE = max(np.concatenate(all_PEs).ravel())
-reward_plot = plot_early_and_late(continuous_time_PEs, rewarded_trials, axs1[0], 'reward', window=6)
-low_plot = plot_early_and_late(continuous_time_PEs, low_tone_times, axs1[1], 'low cues', window=6)
-high_plot = plot_early_and_late(continuous_time_PEs, high_tone_times, axs1[2], 'high cues', window=6)
-axs1[2].legend(bbox_to_anchor=(1., .8, .15, .2), loc='upper left')
-plt.tight_layout()
-
-
-
-for ax in axs1:
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-
-fig2, axs2 = plt.subplots(nrows=1, ncols=2)
-min_APE = min(np.concatenate(all_APEs).ravel())
-max_APE = max(np.concatenate(all_APEs).ravel())
-left_plot = plot_heat_maps_over_trials(continuous_time_APEs, left_choices, axs2[0], 'contra', window=6, delta_range=[min_APE, max_APE])
-low_plot = plot_heat_maps_over_trials(continuous_time_APEs, right_choices, axs2[1], 'ipsi', window=6, delta_range=[min_APE, max_APE])
-
-plt.tight_layout()
-#plt.savefig("../../figs/ape_model.pdf")
-plt.show()
-
-
-fig3, axs3 = plt.subplots(nrows=1, ncols=2, sharey=True)
-min_APE = min(np.concatenate(all_APEs).ravel())
-max_APE = max(np.concatenate(all_APEs).ravel())
-left_plot = plot_early_and_late(continuous_time_APEs, left_choices, axs3[0], 'contra', window=6)
-low_plot = plot_early_and_late(continuous_time_APEs, right_choices, axs3[1], 'ipsi', window=6)
-axs3[1].legend(bbox_to_anchor=(1., .8, .15, .2), loc='upper left')
-
-for ax in axs3:
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-
-# second figure to appear - PEs vs different things 
-fig4, axs4 = plt.subplots(nrows=1, ncols=3)
-reward_plot = plot_change_over_time(continuous_time_PEs, rewarded_trials, axs4[0], 'reward')
-low_plot = plot_change_over_time(continuous_time_PEs, low_tone_times, axs4[1], 'low cues')
-high_plot = plot_change_over_time(continuous_time_PEs, high_tone_times, axs4[2], 'high cues')
-plt.tight_layout()
-
-for ax in axs4:
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-
-
-# first plot to appear, contra vs ipsi response sizes
-fig5, axs5 = plt.subplots(nrows=1, ncols=2, sharey=True)
-left_plot = plot_change_over_time(continuous_time_APEs, left_choices, axs5[0], 'contra')
-low_plot = plot_change_over_time(continuous_time_APEs, right_choices, axs5[1], 'ipsi')
-
-for ax in axs5:
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-
-
-# movement signal plot
-fig6, axs6 = plt.subplots(nrows=1, ncols=2, sharey=True)
-left_plot = plot_change_over_time(continuous_time_MSs[0, :], left_choices, axs6[0], 'contra - movement signal')
-low_plot = plot_change_over_time(continuous_time_MSs[0, :], right_choices, axs6[1], 'ipsi - movement signal')
-
-for ax in axs6:
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-
-
-# movement signal plot
-font = {'size'   : 12}
-matplotlib.rc('font', **font)
-
-fig2, axs2 = plt.subplots(nrows=1, ncols=2)
-ms_rng = [0, 1]
-left_plot = plot_heat_maps_over_trials(continuous_time_MSs[0, :], left_choices, axs2[0], 'contra', window=6, delta_range=ms_rng)
-low_plot = plot_heat_maps_over_trials(continuous_time_MSs[0, :], right_choices, axs2[1], 'ipsi', window=6, delta_range=ms_rng)
-
-plt.tight_layout()
-#plt.savefig("../../figs/action_model.pdf")
-plt.show()
 
 # novelties, values, saliences
-fig, axs = plt.subplots(3, 3)
-states = ['Start', 'High', 'Low']
-axs[0, 0].set_ylabel('Novelty')
-for i in range(3):
-    axs[0, i].plot(continuous_time_Ns[i, :], lw=2, color='#3F888F')
-    #axs[0, i].set_xlabel('Trial')
-    axs[0, i].set_title(states[i])
+fig, axs = plt.subplots(5, 4)
+states = ['High', 'Low', 'Reward', 'Contra', 'Ipsi']
+time_stamps = {'High': high_tone_times, 'Low': low_tone_times, 'Reward': rewarded_trials,
+               'Contra': left_choices, 'Ipsi': right_choices}
+models = {'APE': continuous_time_APEs, 'RPE': continuous_time_PEs, 'Novelty': continuous_time_Ns,
+          'Salience': continuous_time_Ss, 'Movement': continuous_time_MSs}
 
-# values
-axs[1, 0].set_ylabel('Value')
-for i in range(3):
-    axs[1, i].plot(continuous_time_Vs[i, :], lw=2, color='#3F888F')
-    #axs[1, i].set_xlabel('Trial')
-    #axs[1, i].set_title(states[i])
+plot_early_and_late(models['Movement'],  time_stamps['Contra'], axs[0, 0], ' ', window=6)
+plot_early_and_late(models['Movement'],  time_stamps['Ipsi'], axs[0, 1], ' ', window=6)
+plot_early_and_late(models['Movement'],  time_stamps['Reward'], axs[0, 2], ' ', window=6)
+plot_change_over_time(models['Movement'], time_stamps['Contra'], axs[0, 3])
 
-# saliences
-axs[2, 0].set_ylabel('Salience')
-for i in range(3):
-    #sal = continuous_time_Ss[i, :]
-    sal = continuous_time_Vs[i, :] / np.max(continuous_time_Vs[i, :]) + continuous_time_Ns[i, :]
-    axs[2, i].plot(sal, lw=2, color='#3F888F') # 2 * continuous_time_Vs[i, :] + continuous_time_Ns[i, :]
-    axs[2, i].set_xlabel('Time steps')
-    axs[2, i].set_ylim([0, 1])
-    #axs[2, i].set_title(states[i])
+plot_early_and_late(models['RPE'],  time_stamps['High'], axs[1, 0], ' ', window=6)
+plot_early_and_late(models['RPE'],  time_stamps['Low'], axs[1, 1], ' ', window=6)
+plot_early_and_late(models['RPE'],  time_stamps['Reward'], axs[1, 2], ' ', window=6)
+plot_change_over_time(models['RPE'], time_stamps['High'], axs[1, 3])
 
-plt.tight_layout()
-#plt.savefig("../../figs/alt_models.pdf")
-plt.show()
 
+plot_early_and_late(models['Salience'][:, 1],  time_stamps['High'], axs[2, 0], ' ', window=6)
+plot_early_and_late(models['Salience'][:, 2],  time_stamps['Low'], axs[2, 1], ' ', window=6)
+plot_early_and_late(models['Salience'][:, 3],  time_stamps['Reward'], axs[2, 2], ' ', window=6)
+plot_change_over_time(models['Salience'][:, 1], time_stamps['High'], axs[2, 3])
+
+
+plot_early_and_late(models['Novelty'][:, 1],  time_stamps['High'], axs[3, 0], ' ', window=6)
+plot_early_and_late(models['Novelty'][:, 2],  time_stamps['Low'], axs[3, 1], ' ', window=6)
+plot_early_and_late(models['Novelty'][:, 3],  time_stamps['Reward'], axs[3, 2], ' ', window=6)
+plot_change_over_time(models['Novelty'][:, 1], time_stamps['High'], axs[3, 3])
+
+plot_early_and_late(models['APE'],  time_stamps['Contra'], axs[4, 0], ' ', window=6)
+plot_early_and_late(models['APE'],  time_stamps['Ipsi'], axs[4, 1], ' ', window=6)
+plot_early_and_late(models['APE'],  time_stamps['Reward'], axs[4, 2], ' ', window=6)
+plot_change_over_time(models['APE'], time_stamps['Contra'], axs[4, 3])

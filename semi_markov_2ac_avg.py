@@ -1,8 +1,7 @@
 import pandas as pd
-from semi_markov_two_alternative_choice import Box, Mouse
+from semi_markov_2ac_all_models import Box, Mouse
 from tqdm import tqdm
 import numpy as np
-from semi_markov_two_alternative_choice import plot_change_over_time
 
 n_trials = 800
 n_agents = 100
@@ -26,7 +25,7 @@ for a in tqdm(range(n_agents)):
     all_states = []
     all_state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'action taken'])
     for i in range(n_trials):
-        PEs, trial_type, action, states, state_changes, apes = a.one_trial()
+        _, PEs, trial_type, action, states, state_changes, apes = a.one_trial()
         e.reset()
         all_states.append(states)
         all_PEs.append(PEs)
