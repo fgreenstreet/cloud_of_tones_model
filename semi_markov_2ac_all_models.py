@@ -306,7 +306,7 @@ def plot_heat_maps_over_trials(PEs, time_stamps, ax, title, window=10, delta_ran
     return
 
 
-def plot_early_and_late(PEs, time_stamps, ax, title, window=10, chunk_prop=.33):
+def plot_early_and_late(PEs, time_stamps, ax, max_val, window=10, chunk_prop=.33):
     colours = cm.viridis(np.linspace(0, 0.8, 3))
     aligned_PEs = np.zeros([len(time_stamps), window])
     for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
@@ -319,10 +319,10 @@ def plot_early_and_late(PEs, time_stamps, ax, title, window=10, chunk_prop=.33):
     ax.plot(timesteps, early_aligned_PEs, color=colours[0], label='early')
     ax.plot(timesteps, mid_aligned_PEs, color=colours[1], label='mid')
     ax.plot(timesteps, late_aligned_PEs, color=colours[2], label='late')
-    ax.set_xlabel('Time steps')
-    ax.set_ylabel('Response')
-    plt.xticks(timesteps," ")
-    plt.yticks(timesteps, " ")
+    ax.set_ylim([0, 1])
+    #ax.set_xlabel('Time steps')
+   # ax.set_ylabel('Response')
+
     return
 
 
@@ -332,8 +332,6 @@ def plot_change_over_time(PEs, stamps,ax):
         PEs_peak[trial_num] = PEs[time_stamp]
     rolling_av_peaks = moving_average(PEs_peak, n=50)
     ax.plot(rolling_av_peaks, color='#3F888F')
-    plt.xticks(np.arange(rolling_av_peaks.shape[0]), " ")
-    plt.yticks(np.arange(np.round(max(rolling_av_peaks))), " ")
     return
 
 
@@ -407,36 +405,60 @@ right_choices = all_state_changes['time stamp'][
 
 
 # novelties, values, saliences
-fig, axs = plt.subplots(5, 4)
-states = ['High', 'Low', 'Reward', 'Contra', 'Ipsi']
-time_stamps = {'High': high_tone_times, 'Low': low_tone_times, 'Reward': rewarded_trials,
+fig, axs = plt.subplots(5, 4, figsize=[10, 8])
+states = ['High tones', 'Low tones', 'Reward', 'Contra', 'Ipsi']
+time_stamps = {'High tones': high_tone_times, 'Low tones': low_tone_times, 'Reward': rewarded_trials,
                'Contra': left_choices, 'Ipsi': right_choices}
 models = {'APE': continuous_time_APEs, 'RPE': continuous_time_PEs, 'Novelty': continuous_time_Ns,
           'Salience': continuous_time_Ss, 'Movement': continuous_time_MSs}
 
-plot_early_and_late(models['Movement'],  time_stamps['Contra'], axs[0, 0], ' ', window=6)
-plot_early_and_late(models['Movement'],  time_stamps['Ipsi'], axs[0, 1], ' ', window=6)
-plot_early_and_late(models['Movement'],  time_stamps['Reward'], axs[0, 2], ' ', window=6)
-plot_change_over_time(models['Movement'], time_stamps['Contra'], axs[0, 3])
+axs[0, 0].set_ylabel('RPE')
+axs[1, 0].set_ylabel('Novelty')
+axs[2, 0].set_ylabel('Salience')
+axs[3, 0].set_ylabel('Movement')
+axs[4, 0].set_ylabel('APE')
 
-plot_early_and_late(models['RPE'],  time_stamps['High'], axs[1, 0], ' ', window=6)
-plot_early_and_late(models['RPE'],  time_stamps['Low'], axs[1, 1], ' ', window=6)
-plot_early_and_late(models['RPE'],  time_stamps['Reward'], axs[1, 2], ' ', window=6)
-plot_change_over_time(models['RPE'], time_stamps['High'], axs[1, 3])
+axs[0, 0].set_title('High tones')
+axs[0, 1].set_title('Low tones')
+axs[0, 2].set_title('Reward')
+
+plot_early_and_late(models['RPE'],  time_stamps['High tones'], axs[0, 0], ' ', window=6)
+plot_early_and_late(models['RPE'],  time_stamps['Low tones'], axs[0, 1], ' ', window=6)
+plot_early_and_late(models['RPE'],  time_stamps['Reward'], axs[0, 2], ' ', window=6)
+plot_change_over_time(models['RPE'], time_stamps['High tones'], axs[0, 3])
 
 
-plot_early_and_late(models['Salience'][:, 1],  time_stamps['High'], axs[2, 0], ' ', window=6)
-plot_early_and_late(models['Salience'][:, 2],  time_stamps['Low'], axs[2, 1], ' ', window=6)
-plot_early_and_late(models['Salience'][:, 3],  time_stamps['Reward'], axs[2, 2], ' ', window=6)
-plot_change_over_time(models['Salience'][:, 1], time_stamps['High'], axs[2, 3])
+plot_early_and_late(models['Salience'][:, 1],  time_stamps['High tones'], axs[1, 0], ' ', window=6)
+plot_early_and_late(models['Salience'][:, 2],  time_stamps['Low tones'], axs[1, 1], ' ', window=6)
+plot_early_and_late(models['Salience'][:, 3],  time_stamps['Reward'], axs[1, 2], ' ', window=6)
+plot_change_over_time(models['Salience'][:, 1], time_stamps['High tones'], axs[1, 3])
 
 
-plot_early_and_late(models['Novelty'][:, 1],  time_stamps['High'], axs[3, 0], ' ', window=6)
-plot_early_and_late(models['Novelty'][:, 2],  time_stamps['Low'], axs[3, 1], ' ', window=6)
-plot_early_and_late(models['Novelty'][:, 3],  time_stamps['Reward'], axs[3, 2], ' ', window=6)
-plot_change_over_time(models['Novelty'][:, 1], time_stamps['High'], axs[3, 3])
+plot_early_and_late(models['Novelty'][:, 1],  time_stamps['High tones'], axs[2, 0], ' ', window=6)
+plot_early_and_late(models['Novelty'][:, 2],  time_stamps['Low tones'], axs[2, 1], ' ', window=6)
+plot_early_and_late(models['Novelty'][:, 3],  time_stamps['Reward'], axs[2, 2], ' ', window=6)
+plot_change_over_time(models['Novelty'][:, 1], time_stamps['High tones'], axs[2, 3])
+
+axs[3, 0].set_title('Contra choices')
+axs[3, 1].set_title('Ipsi choices')
+axs[3, 2].set_title('Reward')
+
+plot_early_and_late(models['Movement'],  time_stamps['Contra'], axs[3, 0], ' ', window=6)
+plot_early_and_late(models['Movement'],  time_stamps['Ipsi'], axs[3, 1], ' ', window=6)
+plot_early_and_late(models['Movement'],  time_stamps['Reward'], axs[3, 2], ' ', window=6)
+plot_change_over_time(models['Movement'], time_stamps['Contra'], axs[3, 3])
+
 
 plot_early_and_late(models['APE'],  time_stamps['Contra'], axs[4, 0], ' ', window=6)
 plot_early_and_late(models['APE'],  time_stamps['Ipsi'], axs[4, 1], ' ', window=6)
 plot_early_and_late(models['APE'],  time_stamps['Reward'], axs[4, 2], ' ', window=6)
 plot_change_over_time(models['APE'], time_stamps['Contra'], axs[4, 3])
+
+for ax in axs.ravel():
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+plt.tight_layout()
+plt.show()
