@@ -211,7 +211,7 @@ class Mouse(object):
             next_state_num = self.env.state_idx[next_state]
             rho2 = 0
             delta_k = 0
-            rectified_delta_k = 0
+            rectified_delta_k = 0.1
             ################################################################
             movement_signal = self.compute_movement_signal(a)
             novelty = np.zeros(self.env.n_states)
