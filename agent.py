@@ -1,5 +1,6 @@
 import numpy as np
-
+import pandas as pd
+from classic_task import Box
 
 class Mouse(object):
     def __init__(self, reaction_times, movement_times, env=Box(), critic_learning_rate=.2, actor_learning_rate=.1, habitisation_rate=.1, inv_temp=5., psi=0.1):
@@ -26,6 +27,11 @@ class Mouse(object):
         self.num_cues = 0
         self.num_movements = 1
 
+    def rectify(self, num_to_rectify):
+        if num_to_rectify < 0:
+            return 0
+        else:
+            return num_to_rectify
 
     def get_dwell_time(self, state):
         if state == 'High' or state == 'Low':
@@ -83,7 +89,7 @@ class Mouse(object):
             rho_k = sum(self.r_k[-n:]) / sum(self.dwell_time_history[-n:])
         return rho_k
 
-    def one_trial(self):
+    def one_trial(self, trial_num):
         k = 0
         t = 0
         rectified_prediction_errors, prediction_errors, apes, actions, states, m_signals, novelties, salience_hist, values = [], [], [], [], [], [], [], [], []
@@ -91,7 +97,7 @@ class Mouse(object):
         a = None
         state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'dwell time', 'action taken'])
         total_reward = 0.
-        self.instances_in_state[0] = 1
+        self.instances_in_state[0] += 1
         novelty = self.compute_novelty()
         self.saliences[0] = self.compute_salience(self.critic_value, novelty, 0)
         while not self.env.in_terminal_state() and t < 1000:
@@ -101,11 +107,11 @@ class Mouse(object):
             dwell_time = self.env.time_in_state[current_state_num]
             policy = self.softmax(self.actor_value[:, current_state_num])
             a = self.choose_action(policy, dwell_time)
-            next_state, reward = self.env.act(a, dwell_time < self.dwell_timer)
+            next_state, reward = self.env.act(a, dwell_time < self.dwell_timer, trial_num)
             next_state_num = self.env.state_idx[next_state]
             rho2 = 0
             delta_k = 0
-            rectified_delta_k = 0.1
+            rectified_delta_k = self.rectify(0 + self.psi)
             ################################################################
             movement_signal = self.compute_movement_signal(a)
             novelty = np.zeros(self.env.n_states)
@@ -115,14 +121,15 @@ class Mouse(object):
 
 
             ################################################################
+            movement_states = ['HighLeft', 'HighRight', 'LowLeft', 'LowRight']
             if current_state != next_state:  # only updates value at state transitions
-                novelty = self.compute_novelty()
+                novelty[next_state_num] = self.compute_novelty()[next_state_num]
                 self.saliences[next_state_num] = self.compute_salience(self.critic_value, novelty, next_state_num)
                 self.instances_in_state[next_state_num] += 1
                 self.r_k.append(reward)
                 rho2 = self.compute_average_reward_per_timestep()
                 delta_k = reward - rho2 * dwell_time + self.critic_value[next_state_num] - self.critic_value[current_state_num]
-                rectified_delta_k = rectify(delta_k + self.psi)
+                rectified_delta_k = self.rectify(delta_k + self.psi)
                 self.k += 1
                 self.dwell_timer = self.get_dwell_time(next_state)
                 self.critic_value[current_state_num] += self.critic_lr * delta_k

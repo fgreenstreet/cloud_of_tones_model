@@ -1,5 +1,6 @@
-import numpy as np
 import pandas as pd
+import numpy as np
+import matplotlib.cm as cm
 
 
 def align_PEs(PEs, trial_types, choices):
@@ -60,13 +61,6 @@ def plot_change_over_time(PEs, stamps,ax):
     rolling_av_peaks = moving_average(PEs_peak, n=50)
     ax.plot(rolling_av_peaks, color='#3F888F')
     return
-
-
-def rectify(num_to_rectify):
-    if num_to_rectify < 0:
-        return 0
-    else:
-        return num_to_rectify
 
 
 def moving_average(a, n=3):
