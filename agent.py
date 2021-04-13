@@ -77,7 +77,7 @@ class Mouse(object):
         # just a decaying exponential of time spent in a state
         return np.exp(-gamma * self.instances_in_state)
 
-    def compute_salience(self, value, novelty, state_idx, beta=0.5):
+    def compute_salience(self, value, novelty, state_idx, beta=1):
         # TODO: novelty + rpe
         # return beta * value + (1 - beta) * novelty
         return value[state_idx] / beta + novelty[state_idx]
@@ -92,7 +92,7 @@ class Mouse(object):
     def one_trial(self, trial_num):
         k = 0
         t = 0
-        rectified_prediction_errors, prediction_errors, apes, actions, states, m_signals, novelties, salience_hist, values = [], [], [], [], [], [], [], [], []
+        rectified_prediction_errors, prediction_errors, apes, actions, states, m_signals, novelties, salience_hist, values, reward_types = [], [], [], [], [], [], [], [], [], []
         tone = None
         a = None
         state_changes = pd.DataFrame(columns=['state name', 'time stamp', 'dwell time', 'action taken'])
@@ -107,7 +107,7 @@ class Mouse(object):
             dwell_time = self.env.time_in_state[current_state_num]
             policy = self.softmax(self.actor_value[:, current_state_num])
             a = self.choose_action(policy, dwell_time)
-            next_state, reward = self.env.act(a, dwell_time < self.dwell_timer, trial_num)
+            next_state, reward, trial_type = self.env.act(a, dwell_time < self.dwell_timer, trial_num)
             next_state_num = self.env.state_idx[next_state]
             rho2 = 0
             delta_k = 0
@@ -148,6 +148,7 @@ class Mouse(object):
                 tone = 'Low'
             self.last_action = a
             prediction_errors.append(delta_k)
+            reward_types.append(trial_type)
             rectified_prediction_errors.append(rectified_delta_k)
             apes.append(delta_action[0])
             actions.append(a)
@@ -161,7 +162,7 @@ class Mouse(object):
             t += 1
             self.env.timer += 1
         return prediction_errors, rectified_prediction_errors, tone, actions, states, state_changes, apes, \
-               total_reward, m_signals, values, novelties, salience_hist  # novelties, saliences is 4 x trial_len
+               total_reward, m_signals, values, novelties, salience_hist, reward_types  # novelties, saliences is 4 x trial_len
 
     def choose_action(self, policy, dwell_time, random_policy=False, optimal_policy=False):
         if dwell_time < self.dwell_timer:

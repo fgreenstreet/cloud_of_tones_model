@@ -20,7 +20,7 @@ class Box(object):
     def act(self, action, time_is_not_up, trial_num):
         # maybe make animals not able to act every time step
         next_state = self.get_next_state(self.current_state, action, time_is_not_up, trial_num)
-        reward = self.get_reward(self.current_state, action, next_state)
+        reward, trial_type = self.get_reward(self.current_state, action, next_state)
 
         # adjust state timer
         if next_state != self.current_state:
@@ -29,23 +29,28 @@ class Box(object):
             self.time_in_state[self.state_idx[self.current_state]] += 1
 
         self.current_state = next_state
-        return next_state, reward
+        return next_state, reward, trial_type
 
     def get_reward(self, state, action, next_state):
         if next_state != 'Outcome':
             reward_amount = 0
+            trial_type = None
         else:
             if self.high_to_left:
                 if state == 'HighLeft' or state == 'LowRight':
+                    trial_type = 'normal'
                     reward_amount = 1
                 else:
+                    trial_type = 'incorrect'
                     reward_amount = 0
             else:
                 if state == 'HighRight' or state == 'LowLeft':
+                    trial_type = 'normal'
                     reward_amount = 1
                 else:
+                    trial_type = 'incorrect'
                     reward_amount = 0
-        return reward_amount
+        return reward_amount, trial_type
 
     def get_next_state(self, state, action, timer_is_not_up, trial_num):
         if state == 'Start':

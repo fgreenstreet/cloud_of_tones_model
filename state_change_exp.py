@@ -19,7 +19,7 @@ if __name__ == '__main__':
     cue_reaction_times = np.random.geometric(0.01, x.shape[0]) #(np.exp(-x)*3+ np.random.rand(x.shape[0])) + 5
     movement_times = np.random.geometric(0.01, x.shape[0]) * 2
     e = WhiteNoiseBox(punish=True)
-    a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.005, actor_learning_rate=0.005, habitisation_rate=0.01, psi=0.1)
+    a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.005, actor_learning_rate=0.005, habitisation_rate=0.01, psi=0.2)
 
     all_PEs = []
     all_APEs = []
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     all_rewards, all_MSs, all_Ns, all_Ss, all_Vs = [], [], [], [], []
     with trange(n_trials) as t:
         for i in t:
-            _, PEs, trial_type, action, states, state_changes, apes, trial_r, m_signals, values, novelties, saliences = a.one_trial(i)
+            _, PEs, trial_type, action, states, state_changes, apes, trial_r, m_signals, values, novelties, saliences, _ = a.one_trial(i)
             # pdb.set_trace()
             all_rewards.append(trial_r)
             mean_r = sum(all_rewards) / (i + 1.)
