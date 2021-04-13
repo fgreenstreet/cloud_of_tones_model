@@ -31,7 +31,7 @@ if __name__ == '__main__':
     all_rewards, all_MSs, all_Ns, all_Ss, all_Vs = [], [], [], [], []
     with trange(n_trials) as t:
         for i in t:
-            _, PEs, trial_type, action, states, state_changes, apes, trial_r, m_signals, values, novelties, saliences = a.one_trial()
+            _, PEs, trial_type, action, states, state_changes, apes, trial_r, m_signals, values, novelties, saliences = a.one_trial(i)
             # pdb.set_trace()
             all_rewards.append(trial_r)
             mean_r = sum(all_rewards) / (i + 1.)
@@ -57,12 +57,20 @@ continuous_time_Ns = np.squeeze(np.concatenate(all_Ns))
 continuous_time_Ss = np.squeeze(np.concatenate(all_Ss))
 continuous_time_Vs = np.squeeze(np.concatenate(all_Vs))
 
-
 reward_times = np.where(np.asarray(a.reward_history) == 1)[0]
+
+left_inds = all_state_changes[all_state_changes['action taken'] == 'Left'].index
+cue_left = all_state_changes.shift(periods=1).iloc[left_inds]
+cue_left_times = cue_left['time stamp'].values
+
+right_inds = all_state_changes[all_state_changes['action taken'] == 'Right'].index
+cue_right = all_state_changes.shift(periods=1).iloc[left_inds]
+cue_right_times = cue_right['time stamp'].values
+
 low_tone_times = all_state_changes['time stamp'][
-    all_state_changes[all_state_changes['state name'] == 'Low'].index.values].values
+    all_state_changes[all_state_changes['state name'] == 'HighLeft'].index.values].values
 high_tone_times = all_state_changes['time stamp'][
-    all_state_changes[all_state_changes['state name'] == 'High'].index.values].values
+    all_state_changes[all_state_changes['state name'] == 'LowRight'].index.values].values
 left_choices = all_state_changes['time stamp'][
     all_state_changes[all_state_changes['action taken'] == 'Left'].index.values].values
 right_choices = all_state_changes['time stamp'][
@@ -71,11 +79,11 @@ right_choices = all_state_changes['time stamp'][
 
 # novelties, values, saliences
 fig, axs = plt.subplots(5, 4, figsize=[10, 8])
-states = ['High tones', 'Low tones', 'Reward', 'Contra', 'Ipsi']
-time_stamps = {'High tones': high_tone_times, 'Low tones': low_tone_times, 'Reward': reward_times,
+states = ['Left cues', 'Right cues', 'Reward', 'Contra', 'Ipsi']
+time_stamps = {'Left cues': cue_left_times, 'Right cues': cue_right_times, 'Reward': reward_times,
                'Contra': left_choices, 'Ipsi': right_choices}
-models = {'APE': continuous_time_APEs, 'RPE': continuous_time_PEs, 'Novelty': continuous_time_Ns,
-          'Salience': continuous_time_Ss, 'Movement': continuous_time_MSs}
+models = {'APE': continuous_time_APEs, 'RPE': continuous_time_PEs, 'Novelty': np.sum(continuous_time_Ns, axis=1),
+          'Salience': np.sum(continuous_time_Ss, axis=1), 'Movement': continuous_time_MSs}
 
 axs[0, 0].set_ylabel('RPE')
 axs[1, 0].set_ylabel('Salience')
@@ -83,26 +91,26 @@ axs[2, 0].set_ylabel('Novelty')
 axs[3, 0].set_ylabel('Movement')
 axs[4, 0].set_ylabel('APE')
 
-axs[0, 0].set_title('High tones')
-axs[0, 1].set_title('Low tones')
+axs[0, 0].set_title('Left cues')
+axs[0, 1].set_title('Right cues')
 axs[0, 2].set_title('Reward')
 
-plot_early_and_late(models['RPE'],  time_stamps['High tones'], axs[0, 0], ' ', window=6)
-plot_early_and_late(models['RPE'],  time_stamps['Low tones'], axs[0, 1], ' ', window=6)
+plot_early_and_late(models['RPE'],  time_stamps['Left cues'], axs[0, 0], ' ', window=6)
+plot_early_and_late(models['RPE'],  time_stamps['Right cues'], axs[0, 1], ' ', window=6)
 plot_early_and_late(models['RPE'],  time_stamps['Reward'], axs[0, 2], ' ', window=6)
-plot_change_over_time(models['RPE'], time_stamps['High tones'], axs[0, 3])
+plot_change_over_time(models['RPE'], time_stamps['Left cues'], axs[0, 3])
 
 
-plot_early_and_late(models['Salience'][:, 1],  time_stamps['High tones'], axs[1, 0], ' ', window=6)
-plot_early_and_late(models['Salience'][:, 2],  time_stamps['Low tones'], axs[1, 1], ' ', window=6)
-plot_early_and_late(models['Salience'][:, 3],  time_stamps['Reward'], axs[1, 2], ' ', window=6)
-plot_change_over_time(models['Salience'][:, 1], time_stamps['High tones'], axs[1, 3])
+plot_early_and_late(models['Salience'],  time_stamps['Left cues'], axs[1, 0], ' ', window=6)
+plot_early_and_late(models['Salience'],  time_stamps['Right cues'], axs[1, 1], ' ', window=6)
+plot_early_and_late(models['Salience'],  time_stamps['Reward'], axs[1, 2], ' ', window=6)
+plot_change_over_time(models['Salience'], time_stamps['Left cues'], axs[1, 3])
 
 
-plot_early_and_late(models['Novelty'][:, 1],  time_stamps['High tones'], axs[2, 0], ' ', window=6)
-plot_early_and_late(models['Novelty'][:, 2],  time_stamps['Low tones'], axs[2, 1], ' ', window=6)
-plot_early_and_late(models['Novelty'][:, 3],  time_stamps['Reward'], axs[2, 2], ' ', window=6)
-plot_change_over_time(models['Novelty'][:, 1], time_stamps['High tones'], axs[2, 3])
+plot_early_and_late(models['Novelty'],  time_stamps['Left cues'], axs[2, 0], ' ', window=6)
+plot_early_and_late(models['Novelty'],  time_stamps['Right cues'], axs[2, 1], ' ', window=6)
+plot_early_and_late(models['Novelty'],  time_stamps['Reward'], axs[2, 2], ' ', window=6)
+plot_change_over_time(models['Novelty'], time_stamps['Left cues'], axs[2, 3])
 
 axs[3, 0].set_title('Contra choices')
 axs[3, 1].set_title('Ipsi choices')

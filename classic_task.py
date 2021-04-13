@@ -1,3 +1,4 @@
+import numpy as np
 class Box(object):
     def __init__(self, punish=False):
         self.high_to_left = True  # toggles whether High tone corresponds to correct action being left
@@ -16,11 +17,9 @@ class Box(object):
         self.timer = 0
         self.punish = punish
 
-
-
-    def act(self, action, time_is_not_up):
+    def act(self, action, time_is_not_up, trial_num):
         # maybe make animals not able to act every time step
-        next_state = self.get_next_state(self.current_state, action, time_is_not_up)
+        next_state = self.get_next_state(self.current_state, action, time_is_not_up, trial_num)
         reward = self.get_reward(self.current_state, action, next_state)
 
         # adjust state timer
@@ -48,7 +47,7 @@ class Box(object):
                     reward_amount = 0
         return reward_amount
 
-    def get_next_state(self, state, action, timer_is_not_up):
+    def get_next_state(self, state, action, timer_is_not_up, trial_num):
         if state == 'Start':
             if action == 'Centre':
                 if np.random.rand() <= self.high_sound_prob:

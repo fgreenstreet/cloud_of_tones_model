@@ -81,7 +81,7 @@ white_noise_times = all_state_changes['time stamp'][
 
 # novelties, values, saliences
 fig, axs = plt.subplots(5, 1, figsize=[2, 6])
-states = ['Left cues', 'Right cues', 'White noise' 'Reward', 'Contra', 'Ipsi']
+states = ['Left cues', 'Right cues', 'White noise', 'Reward', 'Contra', 'Ipsi']
 #time_stamps = {'High tones': high_tone_times, 'Low tones': low_tone_times, 'White noise': white_noise_times, 'Reward': reward_times,
 #               'Contra': left_choices, 'Ipsi': right_choices}
 
