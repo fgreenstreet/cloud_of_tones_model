@@ -94,9 +94,10 @@ colours = cm.inferno(np.linspace(0, 0.8, 3))
 for ax_num, ax in enumerate(axs):
     model_type = list(models)[ax_num]
     plot_average_response(models[model_type], time_stamps['Omissions'], ax, color=colours[0])
-    plot_average_response(models[model_type], time_stamps['Normal rewards'], ax, color=colours[2])
-    plot_average_response(models[model_type], time_stamps['Large rewards'], ax, color=colours[1])
+    plot_average_response(models[model_type], time_stamps['Normal rewards'], ax, color=colours[1])
+    plot_average_response(models[model_type], time_stamps['Large rewards'], ax, color=colours[2])
     ax.set_ylabel(model_type)
+    ax.set_ylim([-0.5, 2])
 
 
 for ax in axs.ravel():

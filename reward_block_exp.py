@@ -100,14 +100,14 @@ for ax_num, ax in enumerate(axs[:, 0]):
     plot_average_response(models[model_type], time_stamps['Normal left cue'], ax, color=colours[1])
     plot_average_response(models[model_type], time_stamps['BIG left cue'], ax, color=colours[2])
     ax.set_ylabel(model_type)
-    ax.set_ylim([-0.5, 1.2])
+    ax.set_ylim([0, 1.2])
 
 for ax_num, ax in enumerate(axs[:, 1]):
     model_type = list(models)[ax_num]
     plot_average_response(models[model_type], time_stamps['Normal right cue'], ax, color=colours[1])
     plot_average_response(models[model_type], time_stamps['SMALL right cue'], ax, color=colours[0])
     ax.set_ylabel(model_type)
-    ax.set_ylim([-0.5, 1])
+    ax.set_ylim([0, 1])
 
 
 for ax in axs.ravel():
@@ -118,5 +118,5 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/omissions_large_rewards.pdf")
+plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks.pdf")
 plt.show()
