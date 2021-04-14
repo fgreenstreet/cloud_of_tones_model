@@ -137,7 +137,7 @@ class Mouse(object):
                 delta_action = self.compute_habit_prediction_error(a, current_state_num)
                 self.habit_strength[:, current_state_num] += self.habitisation_rate * delta_action
                 k += 1  # transition index increases
-                new_state_changes = pd.DataFrame([[next_state, self.env.timer, dwell_time, a]], columns=['state name', 'time stamp', 'dwell time', 'action taken'])
+                new_state_changes = pd.DataFrame([[next_state, self.env.timer, dwell_time, a, trial_num]], columns=['state name', 'time stamp', 'dwell time', 'action taken', 'trial number'])
                 state_changes = state_changes.append(new_state_changes)
                 self.dwell_time_history.append(dwell_time)
 

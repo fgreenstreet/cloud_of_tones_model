@@ -60,7 +60,6 @@ def plot_average_response(PEs, time_stamps, ax, window=10, color='k'):
     average_PEs = aligned_PEs.mean(axis=0)
     timesteps = np.arange(-(window / 2), (window / 2))
     ax.plot(timesteps, average_PEs, color=color, label='late')
-    ax.set_ylim([-0.5, 2])
     ax.set_xlabel('Time steps')
     ax.set_ylabel('Response')
     return
