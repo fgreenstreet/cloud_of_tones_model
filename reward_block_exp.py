@@ -13,7 +13,7 @@ np.random.seed(0)
 if __name__ == '__main__':
     import pandas as pd
 
-    n_trials = 2800
+    n_trials = 2500
     x = np.linspace(0, 50, n_trials  * 10)
     cue_reaction_times = np.random.geometric(0.01, x.shape[0]) #(np.exp(-x)*3+ np.random.rand(x.shape[0])) + 5
     movement_times = np.random.geometric(0.01, x.shape[0]) * 2

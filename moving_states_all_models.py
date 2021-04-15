@@ -7,6 +7,7 @@ from tqdm import tqdm, trange
 from agent import Mouse
 from classic_task import Box
 from plotting_functions import *
+from trial_matched_comparisons import get_early_mid_late, get_early_mid_late_left_trials
 np.random.seed(0)
 
 
@@ -67,6 +68,7 @@ right_inds = all_state_changes[all_state_changes['action taken'] == 'Right'].ind
 cue_right = all_state_changes.shift(periods=1).iloc[left_inds]
 cue_right_times = cue_right['time stamp'].values
 
+
 low_tone_times = all_state_changes['time stamp'][
     all_state_changes[all_state_changes['state name'] == 'HighLeft'].index.values].values
 high_tone_times = all_state_changes['time stamp'][
@@ -75,16 +77,20 @@ left_choices = all_state_changes['time stamp'][
     all_state_changes[all_state_changes['action taken'] == 'Left'].index.values].values
 right_choices = all_state_changes['time stamp'][
     all_state_changes[all_state_changes['action taken'] == 'Right'].index.values].values
+incorrect_left_trials = all_state_changes['trial number'][
+    all_state_changes[all_state_changes['state name'] == 'LowLeft'].index.values].values
+correct_left_trials = all_state_changes['trial number'][
+    all_state_changes[all_state_changes['state name'] == 'HighLeft'].index.values].values
+early_incorrect_times, mid_incorrect_times, late_incorrect_times = get_early_mid_late_left_trials(incorrect_left_trials, n_trials, all_state_changes)
+early_correct_times, mid_correct_times, late_correct_times = get_early_mid_late_left_trials(correct_left_trials, n_trials, all_state_changes)
 
 
-# novelties, values, saliences
-fig, axs = plt.subplots(5, 4, figsize=[10, 8])
 states = ['Left cues', 'Right cues', 'Reward', 'Contra', 'Ipsi']
 time_stamps = {'Left cues': cue_left_times, 'Right cues': cue_right_times, 'Reward': reward_times,
                'Contra': left_choices, 'Ipsi': right_choices}
 models = {'APE': continuous_time_APEs, 'RPE': continuous_time_PEs, 'Novelty': np.sum(continuous_time_Ns, axis=1),
           'Salience': np.sum(continuous_time_Ss, axis=1), 'Movement': continuous_time_MSs}
-
+fig, axs = plt.subplots(5, 4, figsize=[10, 8])
 axs[0, 0].set_ylabel('RPE')
 axs[1, 0].set_ylabel('Salience')
 axs[2, 0].set_ylabel('Novelty')
@@ -136,4 +142,28 @@ for ax in axs.ravel():
 
 plt.tight_layout()
 plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models.pdf")
+plt.show()
+
+fig, axs = plt.subplots(3,1, figsize=[4, 6], sharey=True)
+
+axs[0].set_title('Early')
+plot_average_response(models['APE'],  early_correct_times, axs[0], color='green')
+plot_average_response(models['APE'],  early_incorrect_times, axs[0], color='red')
+
+axs[1].set_title('Middle')
+plot_average_response(models['APE'],  mid_correct_times, axs[1], color='green')
+plot_average_response(models['APE'],  mid_incorrect_times, axs[1], color='red')
+
+axs[2].set_title('Late')
+plot_average_response(models['APE'],  late_correct_times, axs[2], color='green')
+plot_average_response(models['APE'],  late_incorrect_times, axs[2], color='red')
+
+for ax in axs.ravel():
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+plt.tight_layout()
+plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/APE_correct_incorrect.pdf")
 plt.show()
