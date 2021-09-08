@@ -112,4 +112,30 @@ for ax in axs.ravel():
 
 plt.tight_layout()
 plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models_white_noise.pdf")
+
+state_change_left_choices = all_state_changes['time stamp'][
+    all_state_changes[(all_state_changes['action taken'] == 'Left') & (all_state_changes['trial number'] >= 2000) ].index.values].values
+pre_left_choices = all_state_changes['time stamp'][
+    all_state_changes[(all_state_changes['action taken'] == 'Left') & (all_state_changes['trial number'] < 2000) ].index.values].values
+cue_stamps = (low_tone_times, white_noise_times)
+movement_stamps = (pre_left_choices, state_change_left_choices)
+model_timestamp_type = {'APE': movement_stamps, 'RPE': cue_stamps, 'Novelty': cue_stamps,
+          'Salience': cue_stamps, 'Movement': movement_stamps}
+fig, axs = plt.subplots(5, 1, figsize=[2, 6])
+colours = cm.viridis(np.linspace(0, 0.8, 3))
+axs[0].set_ylabel('RPE')
+axs[1].set_ylabel('Salience')
+axs[2].set_ylabel('Novelty')
+axs[3].set_ylabel('Movement')
+axs[4].set_ylabel('APE')
+
+for ax_num, ax in enumerate(axs):
+    model_type = list(models)[ax_num]
+    plot_average_response(models[model_type], model_timestamp_type[model_type][0], ax, color=colours[1])
+    plot_average_response(models[model_type], model_timestamp_type[model_type][1], ax, color=colours[0])
+    ax.set_ylabel(model_type)
+    ax.set_ylim([0, 1])
+
+plt.tight_layout()
+plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/state_change_trace_view.pdf")
 plt.show()
