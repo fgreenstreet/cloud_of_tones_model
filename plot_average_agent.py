@@ -1,30 +1,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
-RPE_fig, RPE_axs = plt.subplots(1, 3)
-RPE_rewards = np.load('all_RPE_rewards.npy')
-RPE_lowtones = np.load('all_RPE_lowtones.npy')
-RPE_hightones = np.load('all_RPE_hightones.npy')
-APE_left = np.load('all_APE_left.npy')
-APE_right = np.load('all_APE_right.npy')
-RPE_axs[0].plot(np.nanmean(RPE_rewards, axis=0)[: -50], color='#3F888F')
-RPE_axs[1].plot(np.nanmean(RPE_lowtones, axis=0)[: -50], color='#3F888F')
-RPE_axs[2]. plot(np.nanmean(RPE_hightones, axis=0)[: -50], color='#3F888F')
-
-APE_fig, APE_axs = plt.subplots(1, 2)
-APE_axs[0].plot(np.nanmean(APE_left, axis=0)[: -50], color='#3F888F')
-APE_axs[1].plot(np.nanmean(APE_right, axis=0)[: -50], color='#3F888F')
+from plotting_functions import label_axes_change_over_time
+import matplotlib
 
 
-for ax in RPE_axs:
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.set_xlabel('Trial')
-    ax.set_ylabel('Response size')
+font = {'size': 7}
+matplotlib.rc('font', **font)
+num_agents = 100
+peaks = np.load('/Users/francesca/Documents/Model_of_2AC_task_figs/{}_agents_classic_exp.npy'.format(num_agents), allow_pickle=True)
+
+APE_fig, APE_axs = plt.subplots(1, 1, figsize=[2, 2])
+APE_mean = np.mean(peaks.item().get('APE contra'), axis=0)
+APE_axs.plot(APE_mean, color='#3F888F')
+APE_fig.set_tight_layout(True)
+APE_axs = label_axes_change_over_time(APE_axs)
+plt.savefig('/Users/francesca/Documents/Model_of_2AC_task_figs/{}_agents_classic_exp_APE_contra.pdf'.format(num_agents))
 
 
-for ax in APE_axs:
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.set_xlabel('Trial')
-    ax.set_ylabel('Response size')
+RPE_fig, RPE_axs = plt.subplots(1, 1, figsize=[2, 2])
+RPE_mean = np.mean(peaks.item().get('RPE cues'), axis=0)
+RPE_axs.plot(RPE_mean, color='#3F888F')
+RPE_fig.set_tight_layout(True)
+RPE_axs = label_axes_change_over_time(RPE_axs)
+plt.savefig('/Users/francesca/Documents/Model_of_2AC_task_figs/{}_agents_classic_exp_RPE_cue.pdf'.format(num_agents))
+
 plt.show()

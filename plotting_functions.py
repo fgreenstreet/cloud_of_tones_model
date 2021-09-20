@@ -74,7 +74,31 @@ def plot_change_over_time(PEs, stamps,ax):
     return
 
 
+def get_one_agent_stamps(PEs, stamps):
+    PEs_peak = np.zeros([len(stamps)-3])
+    for trial_num, time_stamp in enumerate(stamps[1:-2]):
+        PEs_peak[trial_num] = PEs[time_stamp]
+    return PEs_peak
+
+
+def get_all_agents_peaks(all_agents):
+    max_num_stamps = max([len(i) for i in all_agents])
+    all_peaks = np.empty([len(all_agents), max_num_stamps])
+    all_peaks[:] = np.nan
+    for agent_num, agent in enumerate(all_agents):
+        all_peaks[agent_num, :len(agent)] = agent
+    return all_peaks
+
+
 def moving_average(a, n=3):
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
+
+
+def label_axes_change_over_time(ax):
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.set_xlabel('Trial')
+    ax.set_ylabel('Response size')
+    return ax
