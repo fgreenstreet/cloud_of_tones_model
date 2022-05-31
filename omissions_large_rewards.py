@@ -108,5 +108,5 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/omissions_large_rewards.pdf")
+#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/omissions_large_rewards.pdf")
 plt.show()

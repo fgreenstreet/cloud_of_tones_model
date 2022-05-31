@@ -141,7 +141,7 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models.pdf")
+#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models.pdf")
 plt.show()
 
 fig, axs = plt.subplots(3,1, figsize=[4, 6], sharey=True)
@@ -165,5 +165,5 @@ for ax in axs.ravel():
     ax.spines['left'].set_visible(False)
 
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/APE_correct_incorrect.pdf")
+#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/APE_correct_incorrect.pdf")
 plt.show()
