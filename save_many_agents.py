@@ -15,7 +15,7 @@ np.random.seed(0)
 
 if __name__ == '__main__':
     import pandas as pd
-    num_agents = 100
+    num_agents = 11
     RPE_cues = []
     Salience_cues = []
     Novelty_cues = []

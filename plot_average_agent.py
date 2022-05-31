@@ -3,9 +3,12 @@ import matplotlib.pyplot as plt
 from plotting_functions import label_axes_change_over_time
 import matplotlib
 
-
 font = {'size': 7}
 matplotlib.rc('font', **font)
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['font.sans-serif'] = 'Arial'
+matplotlib.rcParams['font.family']
+
 num_agents = 100
 peaks = np.load('/Users/francesca/Documents/Model_of_2AC_task_figs/{}_agents_classic_exp.npy'.format(num_agents), allow_pickle=True)
 
@@ -23,5 +26,23 @@ RPE_axs.plot(RPE_mean, color='#3F888F')
 RPE_fig.set_tight_layout(True)
 RPE_axs = label_axes_change_over_time(RPE_axs)
 plt.savefig('/Users/francesca/Documents/Model_of_2AC_task_figs/{}_agents_classic_exp_RPE_cue.pdf'.format(num_agents))
+
+
+fig, axs = plt.subplots(5, 1, figsize=[2, 8])
+salience_mean = np.mean(peaks.item().get('Salience cues'), axis=0)
+novelty_mean = np.mean(peaks.item().get('Novelty cues'), axis=0)
+movement_mean = np.mean(peaks.item().get('Movement contra'), axis=0)
+
+# ape, rpe, salience, novelty, movement
+axs[0].plot(APE_mean, color='#3F888F')
+axs[1].plot(RPE_mean, color='#3F888F')
+
+axs[2].plot(salience_mean, color='#3F888F')
+axs[3].plot(novelty_mean, color='#3F888F')
+axs[4].plot(movement_mean, color='#3F888F')
+for ax in axs:
+    ax = label_axes_change_over_time(ax)
+plt.tight_layout()
+plt.savefig('/Users/francesca/Documents/Model_of_2AC_task_figs/{}_agents_classic_exp_all_models.pdf'.format(num_agents))
 
 plt.show()
