@@ -1,4 +1,6 @@
 import numpy as np
+
+
 class Box(object):
     def __init__(self, punish=False):
         self.high_to_left = True  # toggles whether High tone corresponds to correct action being left
@@ -99,3 +101,73 @@ class Box(object):
         :return:
         """
         return self.current_state == 'Outcome'
+
+
+class TaskWithTimeOuts(Box):
+    # TODO: implement a length of timeout (i.e. how long do we stay in the no sound loop)
+    def __init__(self):
+        super().__init__(punish=True)
+        self.env_states = ['Start', 'High', 'Low', 'Outcome', 'StartInTimeOut', 'NoSound']
+        self.actions = ['Left', 'Centre', 'Right', 'Idle']
+        action_states = ['HighLeft', 'HighRight', 'LowLeft', 'LowRight', 'NoSoundLeft', 'NoSoundRight']
+        self.states = self.env_states + action_states
+        self.n_states = len(self.states)
+        self.state_idx = {s: idx for s, idx in zip(self.states, range(self.n_states))}
+        self.current_state = self.states[0]
+        self.time_in_state = np.zeros(self.n_states, dtype=int)
+        self.timer = 0
+
+    def get_next_state(self, state, action, timer_is_not_up, trial_num, time_out=False):
+        if state == 'Start':
+            if action == 'Centre':
+                if np.random.rand() <= self.high_sound_prob:
+                    next_state = 'High'
+                else:
+                    next_state = 'Low'
+            else:
+                next_state = 'Start'
+        elif state == 'StartInTimeOut':  # This looks perceptually the same as 'Start'
+            if action == 'Centre':
+                next_state = 'NoSound'
+            else:
+                next_state = 'StartInTimeOut'
+        elif state == 'NoSound':  # For this state, both left and right actions have been rewarded during training
+            if action == 'Idle':
+                next_state = state
+            elif action == 'Centre':
+                next_state = state
+            else:
+                next_state = state + action
+        elif state == 'High' or state == 'Low':
+            if action == 'Idle':
+                next_state = state
+            elif action == 'Centre':
+                next_state = state
+            else:
+                next_state = state + action
+        elif state == 'HighLeft' or state == 'LowRight':
+            if timer_is_not_up:
+                next_state = state
+            else:
+                next_state = 'Outcome'
+        elif state == 'NoSoundRight' or state == 'NoSoundLeft':
+            if timer_is_not_up:
+                next_state = state
+            elif not time_out:
+                next_state = 'Outcome'
+            else:
+                next_state = 'StartInTimeOut'
+        elif state == 'HighRight' or state == 'LowLeft':
+            # After these wrong choices, the environment will induce a time-out that will be perceptually identical to
+            # the start state. To the agent, this is perceptually the same as 'Start'.
+            if timer_is_not_up:
+                next_state = state
+            else:
+                next_state = 'StartInTimeOut'
+        elif state == 'Outcome':
+            next_state = None
+
+        else:
+            raise ValueError('No valid state input.')
+
+        return next_state
