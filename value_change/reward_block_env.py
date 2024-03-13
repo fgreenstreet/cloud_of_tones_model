@@ -1,11 +1,11 @@
 import numpy as np
-class WhiteNoiseBox(object):
+class RewardBlockBox(object):
     def __init__(self, punish=False):
         self.high_to_left = True  # toggles whether High tone corresponds to correct action being left
         self.high_sound_prob = .5
-        self.env_states = ['Start', 'High', 'Low', 'Outcome', 'WhiteNoise']
+        self.env_states = ['Start', 'High', 'Low', 'Outcome']
         self.actions = ['Left', 'Centre', 'Right', 'Idle']
-        action_states = ['HighLeft', 'HighRight', 'LowLeft', 'LowRight', 'WhiteNoiseLeft', 'WhiteNoiseRight']
+        action_states = ['HighLeft', 'HighRight', 'LowLeft', 'LowRight']
         self.states = self.env_states + action_states
         self.n_states = len(self.states)
         self.state_idx = {s: idx for s, idx in zip(self.states, range(self.n_states))}
@@ -17,10 +17,16 @@ class WhiteNoiseBox(object):
         self.timer = 0
         self.punish = punish
         self.block_switched = False
+        self.big_side = 'HighLeft'
+
+    def is_block_switched(self, trial_num):
+        if trial_num >= 7500:
+            self.block_switched = True
 
     def act(self, action, time_is_not_up, trial_num):
         # maybe make animals not able to act every time step
         next_state = self.get_next_state(self.current_state, action, time_is_not_up, trial_num)
+        self.is_block_switched(trial_num)
         reward, trial_type = self.get_reward(self.current_state, action, next_state)
 
         # adjust state timer
@@ -38,49 +44,44 @@ class WhiteNoiseBox(object):
             trial_type = None
         else:
             if self.high_to_left:
-                if state == 'HighLeft' or state == 'LowRight' or state == 'WhiteNoiseLeft':
-                    reward_amount = 1
-                    trial_type = 'normal'
+                if state == 'HighLeft' or state == 'LowRight':
+                    if self.block_switched:
+                        reward_amounts = {'HighLeft': 3, 'LowRight': 1}
+                        trial_types = {'HighLeft': 'large reward side', 'LowRight': 'small reward side'}
+                    else:
+                        reward_amounts = {'HighLeft': 1, 'LowRight': 1}
+                        trial_types = {'HighLeft': 'normal', 'LowRight': 'normal'}
+                    reward_amount = reward_amounts[state]
+                    trial_type = trial_types[state]
                 else:
-                    reward_amount = 0
                     trial_type = 'incorrect'
+                    reward_amount = 0
             else:
-                if state == 'HighRight' or state == 'LowLeft' or state == 'WhiteNoiseRight':
-                    reward_amount = 1
-                    trial_type = 'normal'
+                if state == 'HighRight' or state == 'LowLeft':
+                    if self.block_switched:
+                        reward_amounts = {'LowLeft': 3, 'HighRight': 1}
+                        trial_types = {'LowLeft': 'large reward side', 'HighRight': 'small reward side'}
+                    else:
+                        reward_amounts = {'LowLeft': 1, 'HighRight': 1}
+                        trial_types = {'LowLeft': 'normal', 'HighRight': 'normal'}
+                    reward_amount = reward_amounts[state]
+                    trial_type = trial_types[state]
                 else:
-                    reward_amount = 0
                     trial_type = 'incorrect'
+                    reward_amount = 0
         return reward_amount, trial_type
 
-
-    def is_block_switched(self, trial_num):
-        if trial_num >= 2000:
-            self.block_switched = True
-
     def get_next_state(self, state, action, timer_is_not_up, trial_num):
-        self.is_block_switched(trial_num)
         if state == 'Start':
             if action == 'Centre':
                 if np.random.rand() <= self.high_sound_prob:
-                    if self.high_to_left:
-                        if not self.block_switched:
-                            next_state = 'High'
-                        else:
-                            next_state = 'WhiteNoise'
-
+                    next_state = 'High'
                 else:
-                    if not self.high_to_left:
-                        if not self.block_switched:
-                            next_state = 'Low'
-                        else:
-                            next_state = 'WhiteNoise'
-                    else:
-                        next_state = 'Low'
+                    next_state = 'Low'
             else:
                 next_state = 'Start'
 
-        elif state == 'High' or state == 'Low' or state == 'WhiteNoise':
+        elif state == 'High' or state == 'Low':
             if action == 'Idle':
                 next_state = state
             elif action == 'Centre':
@@ -90,7 +91,7 @@ class WhiteNoiseBox(object):
                     next_state = state
             else:
                 next_state = state + action
-        elif state == 'HighLeft' or state == 'HighRight' or state == 'LowLeft' or state == 'LowRight' or state == 'WhiteNoiseLeft' or state == 'WhiteNoiseRight':
+        elif state == 'HighLeft' or state == 'HighRight' or state == 'LowLeft' or state == 'LowRight':
             if timer_is_not_up:
                 next_state = state
             else:
@@ -100,6 +101,7 @@ class WhiteNoiseBox(object):
 
         else:
             raise ValueError('No valid state input.')
+
         return next_state
 
     def reset(self):

@@ -1,12 +1,8 @@
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib
-import pdb
-from tqdm import tqdm, trange
+from tqdm import trange
 from agent import Mouse
-from omissions_large_rewards_env import OmissionsLargeRewardBox
-from plotting_functions import *
+from omissions_large_rewards.omissions_large_rewards_env import OmissionsLargeRewardBox
+from helper_functions.plotting_functions import *
 np.random.seed(0)
 
 

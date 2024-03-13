@@ -1,24 +1,21 @@
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import matplotlib
-import pdb
-from tqdm import tqdm, trange
+from tqdm import trange
 from agent import Mouse
-from reward_block_env import RewardBlockBox
-from plotting_functions import *
+from value_change.reward_block_env import RewardBlockBox
+from helper_functions.plotting_functions import *
 np.random.seed(0)
 
 
 if __name__ == '__main__':
     import pandas as pd
 
-    n_trials = 2500
+    n_trials = 8000
     x = np.linspace(0, 50, n_trials  * 10)
     cue_reaction_times = np.random.geometric(0.01, x.shape[0]) #(np.exp(-x)*3+ np.random.rand(x.shape[0])) + 5
     movement_times = np.random.geometric(0.01, x.shape[0]) * 2
     e = RewardBlockBox(punish=True)
-    a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.005, actor_learning_rate=0.005, habitisation_rate=0.01, psi=0.2)
+    a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.005, actor_learning_rate=0.005, habitisation_rate=0.001, psi=0.2)
 
     all_PEs = []
     all_APEs = []
@@ -105,6 +102,8 @@ models = {'APE': average_APE, 'RPE': continuous_time_PEs, 'Novelty': np.sum(cont
 
 cue_stamps = ('SMALL right cue', 'All cue times normal', 'BIG left cue')
 movement_stamps = ('SMALL right movement', 'All movement times normal', 'BIG left movement')
+
+
 model_timestamp_type = {'APE': movement_stamps, 'RPE': cue_stamps, 'Novelty': cue_stamps,
           'Salience': cue_stamps, 'Movement': movement_stamps}
 
@@ -156,7 +155,7 @@ for ax in axs.ravel():
     ax.spines['left'].set_visible(False)
 plt.tight_layout()
 
-
+plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks_slow_habitisation_more_training_all_models.pdf")
 
 #Movement aligned APE
 fig, axs = plt.subplots(1, 1, figsize=[2.5, 2])
@@ -171,19 +170,20 @@ axs.spines['right'].set_visible(False)
 axs.spines['top'].set_visible(False)
 axs.spines['bottom'].set_visible(False)
 axs.spines['left'].set_visible(False)
+axs.set_ylim([0, 0.6])
 plt.tight_layout()
-
+#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks_slow_habitisation_more_training_APE.pdf")
 #Cue aligned RPE
 fig, axs = plt.subplots(1, 1, figsize=[2.5, 2])
 plot_average_response(models['RPE'], time_stamps['All cue times normal'], axs, color=colours[1])
 plot_average_response(models['RPE'], time_stamps['SMALL right cue'], axs, color=colours[0])
 plot_average_response(models['RPE'], time_stamps['BIG left cue'], axs, color=colours[2])
-
+axs.set_ylim([0, 0.6])
 
 axs.spines['right'].set_visible(False)
 axs.spines['top'].set_visible(False)
 axs.spines['bottom'].set_visible(False)
 axs.spines['left'].set_visible(False)
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks.pdf")
+#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks_slow_habitisation_more_training_RPE.pdf")
 plt.show()

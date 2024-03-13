@@ -1,23 +1,21 @@
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib
-import pdb
-from tqdm import tqdm, trange
+from tqdm import trange
 from agent import Mouse
 from classic_task import Box
-from plotting_functions import *
-from trial_matched_comparisons import get_early_mid_late, get_early_mid_late_left_trials
+from helper_functions.plotting_functions import *
+from helper_functions.trial_matched_comparisons import get_early_mid_late_left_trials
 np.random.seed(0)
 
-
+"""
+Runs simulation for one agent, all models of dopamine. Used to produce 'early mid late' plots seen in fig S7 C, D & E
+"""
 
 if __name__ == '__main__':
     import pandas as pd
 
     n_trials = 2000
-    x = np.linspace(0,50, n_trials  * 10)
-    cue_reaction_times = np.random.geometric(0.01, x.shape[0]) #(np.exp(-x)*3+ np.random.rand(x.shape[0])) + 5
+    x = np.linspace(0,50, n_trials * 10)
+    cue_reaction_times = np.random.geometric(0.01, x.shape[0])
     movement_times = np.random.geometric(0.01, x.shape[0]) * 2
     e = Box(punish=True)
     a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.005, actor_learning_rate=0.005, habitisation_rate=0.01, psi=0.2)
@@ -53,7 +51,7 @@ if __name__ == '__main__':
 
 continuous_time_PEs = np.concatenate(all_PEs).ravel()
 continuous_time_APEs = np.concatenate(all_APEs).ravel()
-continuous_time_MSs = np.squeeze(np.concatenate(all_MSs))[:,0] # np.concatenate(all_MSs).ravel()
+continuous_time_MSs = np.squeeze(np.concatenate(all_MSs))[:, 0]
 continuous_time_Ns = np.squeeze(np.concatenate(all_Ns))
 continuous_time_Ss = np.squeeze(np.concatenate(all_Ss))
 continuous_time_Vs = np.squeeze(np.concatenate(all_Vs))
@@ -141,7 +139,6 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models.pdf")
 plt.show()
 
 fig, axs = plt.subplots(3,1, figsize=[4, 6], sharey=True)
@@ -165,5 +162,4 @@ for ax in axs.ravel():
     ax.spines['left'].set_visible(False)
 
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/APE_correct_incorrect.pdf")
 plt.show()

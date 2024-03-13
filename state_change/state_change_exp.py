@@ -1,18 +1,21 @@
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import matplotlib
-import pdb
-from tqdm import tqdm, trange
+from tqdm import trange
 from agent import Mouse
-from state_change_env import WhiteNoiseBox
-from plotting_functions import *
+from state_change.state_change_env import WhiteNoiseBox
+from helper_functions.plotting_functions import *
 np.random.seed(0)
 
 
 
 if __name__ == '__main__':
     import pandas as pd
+
+    font = {'size': 7}
+    matplotlib.rc('font', **font)
+    matplotlib.rcParams['pdf.fonttype'] = 42
+    matplotlib.rcParams['font.sans-serif'] = 'Arial'
+    matplotlib.rcParams['font.family']
 
     n_trials = 3000
     x = np.linspace(0, 50, n_trials * 10)
@@ -111,7 +114,7 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models_white_noise.pdf")
+#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models_white_noise.pdf")
 
 state_change_left_choices = all_state_changes['time stamp'][
     all_state_changes[(all_state_changes['action taken'] == 'Left') & (all_state_changes['trial number'] >= 2000) ].index.values].values
@@ -134,8 +137,14 @@ for ax_num, ax in enumerate(axs):
     plot_average_response(models[model_type], model_timestamp_type[model_type][0], ax, color=colours[1])
     plot_average_response(models[model_type], model_timestamp_type[model_type][1], ax, color=colours[0])
     ax.set_ylabel(model_type)
-    ax.set_ylim([0, 1])
+    #ax.set_ylim([0, 1])
+
+for ax in axs.ravel():
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
 
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/state_change_trace_view.pdf")
+#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/state_change_trace_view_rescaled_y_axis.pdf")
 plt.show()

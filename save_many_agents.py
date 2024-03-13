@@ -1,17 +1,17 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib
-import pdb
+import os
 import gc
-from tqdm import tqdm, trange
+from tqdm import trange
 from agent import Mouse
 from classic_task import Box
-from plotting_functions import *
-from trial_matched_comparisons import get_early_mid_late, get_early_mid_late_left_trials
+from helper_functions.plotting_functions import *
+from helper_functions.trial_matched_comparisons import get_early_mid_late_left_trials
+from directories import save_dir
 np.random.seed(0)
 
-
+"""
+Saves out several agents (100 used in paper) to be used by plot_average_agent.py (this creates learning curves seen in 
+figures 4 C  G and S7 C, D & E 
+"""
 
 if __name__ == '__main__':
     import pandas as pd
@@ -24,8 +24,8 @@ if __name__ == '__main__':
 
     for agent_num in range(num_agents):
         n_trials = 2000
-        x = np.linspace(0,50, n_trials  * 10)
-        cue_reaction_times = np.random.geometric(0.01, x.shape[0]) #(np.exp(-x)*3+ np.random.rand(x.shape[0])) + 5
+        x = np.linspace(0,50, n_trials * 10)
+        cue_reaction_times = np.random.geometric(0.01, x.shape[0])
         movement_times = np.random.geometric(0.01, x.shape[0]) * 2
         e = Box(punish=True)
         a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.005, actor_learning_rate=0.005, habitisation_rate=0.01, psi=0.2)
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     peaks['Novelty cues'] = get_all_agents_peaks(Novelty_cues)
     peaks['Movement contra'] = get_all_agents_peaks(Movement_contra)
     peaks['APE contra'] = get_all_agents_peaks(APE_contra)
-    np.save('/Users/francesca/Documents/Model_of_2AC_task_figs/{}_agents_classic_exp.npy'.format(num_agents), peaks)
+    np.save(os.path.join(save_dir, '{}_agents_classic_exp.npy'.format(num_agents), peaks))
 
 
 

@@ -53,13 +53,13 @@ def plot_early_and_late(PEs, time_stamps, ax, max_val, window=10, chunk_prop=.33
     return
 
 
-def plot_average_response(PEs, time_stamps, ax, window=10, color='k'):
+def plot_average_response(PEs, time_stamps, ax, window=10, color='k', label='late'):
     aligned_PEs = np.zeros([len(time_stamps), window])
     for trial_num, time_stamp in enumerate(time_stamps[1:-2]):
         aligned_PEs[trial_num] = PEs[time_stamp - int(window / 2): time_stamp + int(window / 2)]
     average_PEs = aligned_PEs.mean(axis=0)
     timesteps = np.arange(-(window / 2), (window / 2))
-    ax.plot(timesteps, average_PEs, color=color, label='late')
+    ax.plot(timesteps, average_PEs, color=color, label=label)
     ax.set_xlabel('Time steps')
     ax.set_ylabel('Response')
     return
