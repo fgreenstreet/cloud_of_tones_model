@@ -64,7 +64,16 @@ def plot_average_response(PEs, time_stamps, ax, window=10, color='k', label='lat
     ax.set_ylabel('Response')
     return
 
-
+def plot_average_response_no_cutting(PEs, time_stamps, ax, window=10, color='k', label='late'):
+    aligned_PEs = np.zeros([len(time_stamps), window])
+    for trial_num, time_stamp in enumerate(time_stamps):
+        aligned_PEs[trial_num] = PEs[time_stamp - int(window / 2): time_stamp + int(window / 2)]
+    average_PEs = aligned_PEs.mean(axis=0)
+    timesteps = np.arange(-(window / 2), (window / 2))
+    ax.plot(timesteps, average_PEs, color=color, label=label)
+    ax.set_xlabel('Time steps')
+    ax.set_ylabel('Response')
+    return
 def plot_change_over_time(PEs, stamps,ax):
     PEs_peak = np.zeros([len(stamps)-3])
     for trial_num, time_stamp in enumerate(stamps[1:-2]):

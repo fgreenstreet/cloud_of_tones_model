@@ -2,10 +2,13 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-def get_previous_choice_same_stim(all_state_changes, APEs, RPEs, choice='Left', stim='High'):
+def get_previous_choice_same_stim(all_state_changes, APEs, RPEs, choice='Left', stim='High', num_lags=5):
     left_choices = all_state_changes[all_state_changes['state name'] == stim + choice]
     left_trial_numbers = left_choices['trial number'].values
-    left_cue_time_stamps = all_state_changes[all_state_changes['state name'] == stim + choice]['time stamp'].values
+    left_inds = all_state_changes[all_state_changes['action taken'] == 'Left'].index
+    cue_left = all_state_changes.shift(periods=1).iloc[left_inds]
+    correct_cue_left = cue_left[cue_left['state name'] == stim]
+    left_cue_time_stamps = correct_cue_left['time stamp'].values
     left_action_time_stamps = left_choices['time stamp'].values
     same_stim_trials = all_state_changes[
                     (all_state_changes['state name'] == stim + 'Left') |
@@ -16,8 +19,10 @@ def get_previous_choice_same_stim(all_state_changes, APEs, RPEs, choice='Left', 
     APE_trial_numbers = []
     left_APEs = []
     left_RPEs = []
+    cue_time_stamps = []
+    action_time_stamps = []
     for i, left_trial_number in enumerate(left_trial_numbers):
-        for lag in range(1, 6):
+        for lag in range(1, num_lags + 1):
             previous_same_stim_trials = same_stim_trials[same_stim_trials['trial number'] < left_trial_number]
             if previous_same_stim_trials.shape[0] >= lag:
                 last_same_stim_trial_number = previous_same_stim_trials['trial number'].values[-lag]
@@ -32,11 +37,14 @@ def get_previous_choice_same_stim(all_state_changes, APEs, RPEs, choice='Left', 
                 APE_trial_numbers.append(left_trial_number)
                 left_APEs.append(APEs[left_action_time_stamps[i]])
                 left_RPEs.append(RPEs[left_cue_time_stamps[i]])
+                cue_time_stamps.append(left_cue_time_stamps[i])
+                action_time_stamps.append(left_action_time_stamps[i])
     past_trial_df = pd.DataFrame({'previous trial number': last_same_stim_trial_numbers, 'lag': last_stim_lags, 'previous action': last_stim_actions,
-                                  'current trial number': APE_trial_numbers, 'current APE': left_APEs, 'current RPE': left_RPEs})
+                                  'current trial number': APE_trial_numbers, 'current APE': left_APEs, 'current RPE': left_RPEs,
+                                 'cue time stamp': cue_time_stamps, 'action time stamp': action_time_stamps})
     return past_trial_df
 
-def run_multilag_regression_past_choice_on_signal(previous_choice_df, num_lags = 5, y_var='current APE'):
+def run_multilag_regression_past_choice_on_signal(previous_choice_df, num_lags=5, y_var='current APE'):
     coefs = np.zeros([num_lags])
     pvals = np.zeros([num_lags])
     for lag in range(1, num_lags + 1):

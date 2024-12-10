@@ -17,9 +17,12 @@ if __name__ == '__main__':
     n_trials = 2000
     x = np.linspace(0,50, n_trials * 10)
     cue_reaction_times = np.random.geometric(0.01, x.shape[0])
-    movement_times = np.ones(x.shape[0]) * 2 #np.random.geometric(0.01, x.shape[0]) * 2 for almost all simulations but not for regression
+    movement_times = np.random.geometric(0.01, x.shape[0]) * 2 #for almost all simulations but not for regression
     e = Box(punish=True)
-    a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.005, actor_learning_rate=0.005, habitisation_rate=0.01, psi=0.2)
+    inv_temp = .5
+    a = Mouse(cue_reaction_times, movement_times, env=e, critic_learning_rate=0.05, actor_learning_rate=0.05,
+              habitisation_rate=0.01, psi=0.2, inv_temp=inv_temp)
+
 
     all_PEs = []
     all_APEs = []
@@ -90,17 +93,39 @@ time_stamps = {'Left cues': cue_left_times, 'Right cues': cue_right_times, 'Rewa
                'Contra': left_choices, 'Ipsi': right_choices}
 models = {'APE': continuous_time_APEs, 'RPE': continuous_time_PEs, 'Novelty': np.sum(continuous_time_Ns, axis=1),
           'Salience': np.sum(continuous_time_Ss, axis=1), 'Movement': continuous_time_MSs}
-left_choices_previous_choice = get_previous_choice_same_stim(all_state_changes, continuous_time_APEs, continuous_time_PEs, choice='Left', stim='High')
-tail_coefs, tail_pvals = run_multilag_regression_past_choice_on_signal(left_choices_previous_choice, y_var='current APE')
-vs_coefs, vs_pvals = run_multilag_regression_past_choice_on_signal(left_choices_previous_choice, y_var='current RPE')
+left_choices_previous_choice = get_previous_choice_same_stim(all_state_changes, continuous_time_APEs,
+                                                             continuous_time_PEs, choice='Left', stim='High',
+                                                             num_lags=10)
+tail_coefs, tail_pvals = run_multilag_regression_past_choice_on_signal(left_choices_previous_choice, y_var='current APE', num_lags=10)
+vs_coefs, vs_pvals = run_multilag_regression_past_choice_on_signal(left_choices_previous_choice, y_var='current RPE', num_lags=10)
 fig, ax = plt.subplots(1,1, figsize=(3, 3))
 
 ax.plot(tail_coefs, color='#00343a')
 ax.plot(vs_coefs, color='#E95F32')
+ax.axhline(0, color='gray', linestyle='--')
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
 ax.spines['left'].set_visible(False)
+plt.tight_layout()
+plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/previous choice regression {} inv temp.pdf".format(inv_temp))
+fig, axs = plt.subplots(1, 2, figsize=(4, 3))
+same_choice = left_choices_previous_choice[(left_choices_previous_choice['previous action'] == 'Left')
+                                           & (left_choices_previous_choice['lag'] == 1)]
+different_choice = left_choices_previous_choice[(left_choices_previous_choice['previous action'] == 'Right') &
+                                                (left_choices_previous_choice['lag'] == 1)]
+plot_average_response_no_cutting(models['APE'],  same_choice['action time stamp'], axs[0], color='#00343a', window=6)
+plot_average_response_no_cutting(models['APE'],  different_choice['action time stamp'], axs[0], color= '#62b3c4', window=6)
 
+plot_average_response_no_cutting(models['RPE'],  same_choice['cue time stamp'], axs[1], color='#E95F32', window=6)
+plot_average_response_no_cutting(models['RPE'],  different_choice['cue time stamp'], axs[1], color='#f78b43', window=6)
+
+for ax in axs.ravel():
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+plt.tight_layout()
+plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/previous choice traces {} inv temp.pdf".format(inv_temp))
 plt.tight_layout()
 plt.show()
