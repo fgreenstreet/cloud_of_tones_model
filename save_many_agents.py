@@ -10,7 +10,7 @@ np.random.seed(0)
 
 """
 Saves out several agents (100 used in paper) to be used by plot_average_agent.py (this creates learning curves seen in 
-figures 4 C  G and S7 C, D & E 
+figures 3 C G and ED fig8 CDE
 """
 
 if __name__ == '__main__':

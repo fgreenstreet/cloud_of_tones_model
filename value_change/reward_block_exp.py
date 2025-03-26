@@ -4,6 +4,8 @@ from tqdm import trange
 from agent import Mouse
 from value_change.reward_block_env import RewardBlockBox
 from helper_functions.plotting_functions import *
+import os
+from directories import save_dir
 np.random.seed(0)
 
 
@@ -155,7 +157,7 @@ for ax in axs.ravel():
     ax.spines['left'].set_visible(False)
 plt.tight_layout()
 
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks_slow_habitisation_more_training_all_models.pdf")
+plt.savefig(os.path.join(save_dir, "reward_blocks_slow_habitisation_more_training_all_models.pdf"))
 
 #Movement aligned APE
 fig, axs = plt.subplots(1, 1, figsize=[2.5, 2])
@@ -172,7 +174,7 @@ axs.spines['bottom'].set_visible(False)
 axs.spines['left'].set_visible(False)
 axs.set_ylim([0, 0.6])
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks_slow_habitisation_more_training_APE.pdf")
+plt.savefig(os.path.join(save_dir, "reward_blocks_slow_habitisation_more_training_APE.pdf"))
 #Cue aligned RPE
 fig, axs = plt.subplots(1, 1, figsize=[2.5, 2])
 plot_average_response(models['RPE'], time_stamps['All cue times normal'], axs, color=colours[1])
@@ -185,5 +187,5 @@ axs.spines['top'].set_visible(False)
 axs.spines['bottom'].set_visible(False)
 axs.spines['left'].set_visible(False)
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/reward_blocks_slow_habitisation_more_training_RPE.pdf")
+plt.savefig(os.path.join(save_dir, "reward_blocks_slow_habitisation_more_training_RPE.pdf"))
 plt.show()

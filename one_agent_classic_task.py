@@ -7,7 +7,7 @@ from helper_functions.trial_matched_comparisons import get_early_mid_late_left_t
 np.random.seed(0)
 
 """
-Runs simulation for one agent, all models of dopamine. Used to produce 'early mid late' plots seen in fig S7 C, D & E
+Runs simulation for one agent, all models of dopamine. Used to produce 'early mid late' plots seen in EDfig5
 """
 
 if __name__ == '__main__':
@@ -139,27 +139,5 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-plt.show()
 
-fig, axs = plt.subplots(3,1, figsize=[4, 6], sharey=True)
-
-axs[0].set_title('Early')
-plot_average_response(models['APE'],  early_correct_times, axs[0], color='green')
-plot_average_response(models['APE'],  early_incorrect_times, axs[0], color='red')
-
-axs[1].set_title('Middle')
-plot_average_response(models['APE'],  mid_correct_times, axs[1], color='green')
-plot_average_response(models['APE'],  mid_incorrect_times, axs[1], color='red')
-
-axs[2].set_title('Late')
-plot_average_response(models['APE'],  late_correct_times, axs[2], color='green')
-plot_average_response(models['APE'],  late_incorrect_times, axs[2], color='red')
-
-for ax in axs.ravel():
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-
-plt.tight_layout()
 plt.show()

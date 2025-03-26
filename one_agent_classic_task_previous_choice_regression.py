@@ -4,11 +4,13 @@ from agent import Mouse
 from classic_task import Box
 from helper_functions.plotting_functions import *
 from helper_functions.trial_matched_comparisons import get_early_mid_late_left_trials
+import os
+from directories import save_dir
 from helper_functions.next_trial_effect_helpers import get_previous_choice_same_stim, run_multilag_regression_past_choice_on_signal
 np.random.seed(0)
 
 """
-Runs simulation for one agent, all models of dopamine. Used to produce 'early mid late' plots seen in fig S7 C, D & E
+Runs simulation for one agent, all models of dopamine. Used to produce plots seen in fig3 panel i and l
 """
 
 if __name__ == '__main__':
@@ -108,7 +110,7 @@ ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
 ax.spines['left'].set_visible(False)
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/previous choice regression {} inv temp.pdf".format(inv_temp))
+plt.savefig(os.path.join(save_dir, "previous choice regression {} inv temp.pdf".format(inv_temp)))
 fig, axs = plt.subplots(1, 2, figsize=(4, 3))
 same_choice = left_choices_previous_choice[(left_choices_previous_choice['previous action'] == 'Left')
                                            & (left_choices_previous_choice['lag'] == 1)]
@@ -126,6 +128,6 @@ for ax in axs.ravel():
     ax.spines['bottom'].set_visible(False)
     ax.spines['left'].set_visible(False)
 plt.tight_layout()
-plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/previous choice traces {} inv temp.pdf".format(inv_temp))
+plt.savefig(os.path.join(save_dir, "previous choice traces {} inv temp.pdf".format(inv_temp)))
 plt.tight_layout()
 plt.show()

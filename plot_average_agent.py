@@ -6,7 +6,7 @@ from directories import save_dir
 import matplotlib
 
 """
-Plots average agent learning curve seen in figures 4 C  G and S7 C, D & E. Need to run save_many_agents.py or use file:
+Plots average agent learning curve seen in figures 3 C  G and ED fig8 C, D & E. Need to run save_many_agents.py or use file:
 100_agents_classic_exp.npy which is provide along with data
 """
 

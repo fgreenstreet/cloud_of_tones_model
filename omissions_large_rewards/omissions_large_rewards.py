@@ -3,6 +3,8 @@ from tqdm import trange
 from agent import Mouse
 from omissions_large_rewards.omissions_large_rewards_env import OmissionsLargeRewardBox
 from helper_functions.plotting_functions import *
+import os
+from directories import save_dir
 np.random.seed(0)
 
 
@@ -104,5 +106,5 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/omissions_large_rewards.pdf")
+plt.savefig(os.path.join(save_dir, "omissions_large_rewards.pdf"))
 plt.show()

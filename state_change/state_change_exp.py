@@ -4,6 +4,8 @@ from tqdm import trange
 from agent import Mouse
 from state_change.state_change_env import WhiteNoiseBox
 from helper_functions.plotting_functions import *
+import os
+from directories import save_dir
 np.random.seed(0)
 
 
@@ -114,7 +116,7 @@ for ax in axs.ravel():
 
 
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/all_models_white_noise.pdf")
+plt.savefig(os.path.join(save_dir, "all_models_white_noise.pdf"))
 
 state_change_left_choices = all_state_changes['time stamp'][
     all_state_changes[(all_state_changes['action taken'] == 'Left') & (all_state_changes['trial number'] >= 2000) ].index.values].values
@@ -146,5 +148,5 @@ for ax in axs.ravel():
     ax.spines['left'].set_visible(False)
 
 plt.tight_layout()
-#plt.savefig("/Users/francesca/Documents/Model_of_2AC_task_figs/state_change_trace_view_rescaled_y_axis.pdf")
+plt.savefig(os.path.join(save_dir, "state_change_trace_view_rescaled_y_axis.pdf"))
 plt.show()
